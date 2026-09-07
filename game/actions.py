@@ -1,0 +1,122 @@
+"""Core gathering actions (hunting & fishing).
+
+This module contains the *rules* for gathering and no Telegram code, so it can
+be tested or reused in another interface. Rewards are rolled first, then the
+cooldown is claimed and the resources granted in one atomic SQL update
+(``PlayerRepository.apply_gather``), so rapid/double messages can never grant
+duplicate rewards. When an action finds an egg it only reports the fact
+(``egg_found=True``); the handler layer turns it into a real incubating egg
+through ``game.eggs.EggService``.
+"""
+from __future__ import annotations
+
+import random
+import time
+from dataclasses import dataclass
+from typing import Optional
+
+from config import (
+    FISHING_COOLDOWN_SECONDS,
+    FISHING_EGG_CHANCE,
+    FISH_FISH_MAX,
+    FISH_FISH_MIN,
+    HUNT_COOLDOWN_SECONDS,
+    HUNT_EGG_CHANCE,
+    HUNT_PREY,
+)
+from models.player import Player, PlayerRepository
+from utils.rng import weighted_choice
+
+
+@dataclass
+class HuntResult:
+    """Result of a hunt."""
+
+    success: bool
+    cooldown_remaining: int = 0  # set when success is False (still cooling down)
+    prey_key: Optional[str] = None  # which animal was caught (key into HUNT_PREY)
+    meat_gained: int = 0
+    egg_found: bool = False
+    action_time: float = 0.0  # timestamp the cooldown was claimed (on success)
+
+
+def hunt(repo: PlayerRepository, player: Player) -> HuntResult:
+    """🏹 شکار — catch a random animal for meat, with a chance to find an egg."""
+    # Roll the outcome first; nothing is granted until the cooldown is claimed.
+    prey_key = weighted_choice({k: v["weight"] for k, v in HUNT_PREY.items()})
+    prey = HUNT_PREY[prey_key]
+    meat_gained = random.randint(prey["meat_min"], prey["meat_max"])
+    egg_found = random.random() < HUNT_EGG_CHANCE
+
+    # Atomic: sets last_hunt_time AND adds meat in one statement, only if the
+    # cooldown has elapsed. Double clicks cannot both succeed.
+    now = time.time()
+    claimed_at = repo.apply_gather(
+        player.user_id,
+        column="last_hunt_time",
+        cooldown_seconds=HUNT_COOLDOWN_SECONDS,
+        meat=meat_gained,
+        now=now,
+    )
+    if claimed_at is None:
+        return HuntResult(
+            success=False,
+            cooldown_remaining=repo.get_cooldown_remaining(
+                player.user_id, "last_hunt_time", HUNT_COOLDOWN_SECONDS, now=now
+            ),
+        )
+
+    # Keep the in-memory player roughly in sync.
+    player.meat += meat_gained
+    player.last_hunt_time = claimed_at
+
+    return HuntResult(
+        success=True,
+        prey_key=prey_key,
+        meat_gained=meat_gained,
+        egg_found=egg_found,
+        action_time=claimed_at,
+    )
+
+
+@dataclass
+class FishResult:
+    """Result of a fishing trip."""
+
+    success: bool
+    cooldown_remaining: int = 0  # set when success is False (still cooling down)
+    fish_gained: int = 0
+    egg_found: bool = False
+    action_time: float = 0.0
+
+
+def fish(repo: PlayerRepository, player: Player) -> FishResult:
+    """🎣 ماهیگیری — catch a batch of fish, with a chance to find an egg."""
+    fish_gained = random.randint(FISH_FISH_MIN, FISH_FISH_MAX)
+    egg_found = random.random() < FISHING_EGG_CHANCE
+
+    now = time.time()
+    claimed_at = repo.apply_gather(
+        player.user_id,
+        column="last_fishing_time",
+        cooldown_seconds=FISHING_COOLDOWN_SECONDS,
+        fish=fish_gained,
+        now=now,
+    )
+    if claimed_at is None:
+        return FishResult(
+            success=False,
+            cooldown_remaining=repo.get_cooldown_remaining(
+                player.user_id, "last_fishing_time", FISHING_COOLDOWN_SECONDS, now=now
+            ),
+        )
+
+    player.fish += fish_gained
+    player.last_fishing_time = claimed_at
+
+    return FishResult(
+        success=True,
+        fish_gained=fish_gained,
+        egg_found=egg_found,
+        action_time=claimed_at,
+    )
