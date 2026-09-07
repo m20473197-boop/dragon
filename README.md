@@ -43,6 +43,27 @@ Send these as normal messages in the group (no `/`):
 | `اژدهای من` | My dragons       | Shows each dragon's نام (name), نوع (type), ⭐ سطح (level), ✨ تجربه (current/required XP), ❤️ سلامت (HP), 🔥 قدرت (power). |
 | `نام اژدها` | Name dragon      | The bot asks for a name; your next message names your most recent dragon. Sending a game command cancels it. |
 | `غذا بده`   | Feed dragon      | Shows your stored 🥩/🐟 with buttons to feed your newest dragon (consumes food, heals, grants XP, restores hunger). |
+| `سردخانه`   | Cold storage     | Shows your ❄️ سردخانه (cold storage): stored 🥩 گوشت and 🐟 ماهی. |
+
+### Cold storage (سردخانه)
+
+Every player has a basic **❄️ سردخانه** (cold storage) that holds their food —
+🥩 meat and 🐟 fish. It is deliberately simple: **no levels, no upgrades and no
+capacity limits**.
+
+- Hunting deposits meat **directly into cold storage**; fishing deposits fish
+  **directly into cold storage**.
+- Feeding (`غذا بده`) consumes food **from cold storage**.
+
+The amounts live on the player record (`players.meat` / `players.fish`, also
+shown by `تخم ها`/`اژدهای من`); the named `game/storage.py::ColdStorageService`
+is the single place that reads and spends them, shared by the feed system.
+
+> ❄️ سردخانه من
+>
+> 🥩 گوشت: ۹
+>
+> 🐟 ماهی: ۱۳
 
 ### Hunger & feeding
 

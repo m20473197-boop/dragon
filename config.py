@@ -32,6 +32,7 @@ COMMAND_EGGS = "تخم ها"
 COMMAND_MY_DRAGONS = "اژدهای من"
 COMMAND_NAME_DRAGON = "نام اژدها"
 COMMAND_FEED = "غذا بده"
+COMMAND_STORAGE = "سردخانه"
 
 # Default name assigned to a freshly hatched dragon until the owner renames it.
 DEFAULT_DRAGON_NAME = "بدون نام"

@@ -11,6 +11,7 @@ from config import (
     COMMAND_HUNT,
     COMMAND_MY_DRAGONS,
     COMMAND_NAME_DRAGON,
+    COMMAND_STORAGE,
 )
 from handlers.tracking import track_from_update
 
@@ -27,7 +28,8 @@ WELCOME_TEXT = (
     f"🥚 {COMMAND_EGGS} — دیدن تخم‌ها و زمان باز شدنشون\n"
     f"🐉 {COMMAND_MY_DRAGONS} — دیدن اژدهاهات و مشخصاتشون\n"
     f"📛 {COMMAND_NAME_DRAGON} — تعیین نام برای اژدها\n"
-    f"🍖 {COMMAND_FEED} — غذا دادن به اژدها (گوشت/ماهی)\n\n"
+    f"🍖 {COMMAND_FEED} — غذا دادن به اژدها (گوشت/ماهی)\n"
+    f"❄️ {COMMAND_STORAGE} — دیدن گوشت و ماهی ذخیره‌شده\n\n"
     "کافیه دستور رو توی گروه بفرستی!"
 )
 

@@ -29,12 +29,14 @@ from config import (
     COMMAND_HUNT,
     COMMAND_MY_DRAGONS,
     COMMAND_NAME_DRAGON,
+    COMMAND_STORAGE,
     HATCH_SWEEP_INTERVAL_SECONDS,
     SPAWN_CHECK_INTERVAL_SECONDS,
 )
 from game.dragons import DragonService
 from game.eggs import EggService
 from game.feeding import FeedingService
+from game.storage import ColdStorageService
 from handlers.common import help_command, start_command
 from handlers.eggs import eggs_command
 from handlers.errors import on_error
@@ -45,6 +47,7 @@ from handlers.jobs import hatch_sweep, spawn_tick
 from handlers.mydragons import my_dragons_command
 from handlers.name_dragon import capture_dragon_name, name_dragon_command
 from handlers.spawn import CLAIM_PREFIX, claim_callback
+from handlers.storage import storage_command
 from handlers.tracking import track_from_update
 from models.chat import ChatRepository
 from models.dragon import DragonRepository
@@ -62,6 +65,7 @@ COMMAND_MAP = {
     COMMAND_MY_DRAGONS: my_dragons_command,
     COMMAND_NAME_DRAGON: name_dragon_command,
     COMMAND_FEED: feed_command,
+    COMMAND_STORAGE: storage_command,
 }
 
 
@@ -95,12 +99,19 @@ def _setup_shared_objects(application: Application) -> None:
     application.bot_data["chat_repo"] = ChatRepository()
     application.bot_data["egg_repo"] = EggRepository()
     application.bot_data["dragon_repo"] = DragonRepository()
+
+    # Cold storage (سردخانه) holds every player's meat and fish. It is shared
+    # by gathering (deposit) and feeding (consume).
+    application.bot_data["storage_service"] = ColdStorageService(
+        players=application.bot_data["player_repo"]
+    )
     application.bot_data["dragon_service"] = DragonService(
         dragons=application.bot_data["dragon_repo"]
     )
     application.bot_data["feeding_service"] = FeedingService(
         dragons=application.bot_data["dragon_repo"],
         players=application.bot_data["player_repo"],
+        storage=application.bot_data["storage_service"],
     )
     application.bot_data["egg_service"] = EggService(
         eggs=application.bot_data["egg_repo"],

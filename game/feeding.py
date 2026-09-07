@@ -20,6 +20,7 @@ from typing import Optional
 from config import DRAGON_DEFAULT_HUNGER, FOODS
 from database.connection import get_db
 from game.dragons import xp_required_for_level
+from game.storage import ColdStorageService
 from config import LEVEL_UP_MAX_HP_BONUS, LEVEL_UP_POWER_BONUS
 from models.dragon import Dragon, DragonRepository
 from models.player import PlayerRepository
@@ -45,16 +46,15 @@ class FeedingService:
         self,
         dragons: Optional[DragonRepository] = None,
         players: Optional[PlayerRepository] = None,
+        storage: Optional[ColdStorageService] = None,
     ) -> None:
         self.dragons = dragons or DragonRepository()
-        self.players = players or PlayerRepository()
+        # Food always comes out of the player's cold storage (سردخانه).
+        self.storage = storage or ColdStorageService(players)
 
     def food_count(self, owner_id: int, food_key: str) -> int:
-        """How much of the given food the owner currently holds."""
-        player = self.players.get(owner_id)
-        if player is None:
-            return 0
-        return getattr(player, FOODS[food_key]["resource"], 0)
+        """How much of the given food is in the owner's cold storage."""
+        return self.storage.count(owner_id, FOODS[food_key]["resource"])
 
     def feed(self, owner_id: int, food_key: str, now: Optional[float] = None) -> FeedResult:
         """Feed the owner's newest dragon with one unit of ``food_key``.
@@ -72,9 +72,10 @@ class FeedingService:
             if dragon is None:
                 return FeedResult(success=False, reason="no_dragon")
 
-            # Atomically spend the food; the UPDATE only succeeds if enough is
-            # stored, so two concurrent feeds cannot both consume it.
-            if not self.players.spend_resource(
+            # Consume the food from cold storage; the guarded UPDATE only
+            # succeeds if enough is stored, so two concurrent feeds cannot both
+            # spend it.
+            if not self.storage.consume(
                 owner_id, food["resource"], food["cost"], conn=conn
             ):
                 return FeedResult(success=False, reason="not_enough")

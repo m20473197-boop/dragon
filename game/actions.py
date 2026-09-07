@@ -48,8 +48,11 @@ def hunt(repo: PlayerRepository, player: Player) -> HuntResult:
     meat_gained = random.randint(prey["meat_min"], prey["meat_max"])
     egg_found = random.random() < HUNT_EGG_CHANCE
 
-    # Atomic: sets last_hunt_time AND adds meat in one statement, only if the
-    # cooldown has elapsed. Double clicks cannot both succeed.
+    # The meat goes straight into the player's cold storage (سردخانه). The
+    # deposit is folded into the same atomic cooldown update below, so a
+    # double-click can neither bypass the cooldown nor double-deposit.
+    # (Cold storage meat/fish are the players.meat / players.fish columns; see
+    # game.storage.ColdStorageService.)
     now = time.time()
     claimed_at = repo.apply_gather(
         player.user_id,
@@ -95,6 +98,9 @@ def fish(repo: PlayerRepository, player: Player) -> FishResult:
     fish_gained = random.randint(FISH_FISH_MIN, FISH_FISH_MAX)
     egg_found = random.random() < FISHING_EGG_CHANCE
 
+    # The fish goes straight into the player's cold storage (سردخانه), folded
+    # into the same atomic cooldown update below (players.fish column; see
+    # game.storage.ColdStorageService).
     now = time.time()
     claimed_at = repo.apply_gather(
         player.user_id,
