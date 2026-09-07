@@ -31,6 +31,7 @@ COMMAND_FISHING = "ماهیگیری"
 COMMAND_EGGS = "تخم ها"
 COMMAND_MY_DRAGONS = "اژدهای من"
 COMMAND_NAME_DRAGON = "نام اژدها"
+COMMAND_FEED = "غذا بده"
 
 # Default name assigned to a freshly hatched dragon until the owner renames it.
 DEFAULT_DRAGON_NAME = "بدون نام"
@@ -53,6 +54,36 @@ LEVEL_UP_POWER_BONUS: int = 5     # power gained per level
 # XP awarded to the owner's dragons for a successful gathering action.
 HUNT_XP: int = 25
 FISH_XP: int = 15
+
+# --- Dragon hunger ----------------------------------------------------------
+DRAGON_DEFAULT_HUNGER: int = 100       # full hunger at birth / after feeding
+HUNGER_DECAY_PER_HOUR: int = 20        # hunger points lost per hour
+HUNGER_LOW_THRESHOLD: int = 30         # below this, power starts dropping
+HUNGER_MIN_POWER_FACTOR: float = 0.5   # at 0 hunger, effective power is 50%
+
+# --- Feeding ----------------------------------------------------------------
+# Each food: how much of the resource it costs, how much hunger it restores,
+# how much HP it heals, and how much XP it grants.
+FOODS: dict[str, dict] = {
+    "meat": {
+        "name": "گوشت",
+        "emoji": "🥩",
+        "resource": "meat",       # player resource spent
+        "cost": 3,
+        "hunger": 50,
+        "hp": 30,
+        "xp": 20,
+    },
+    "fish": {
+        "name": "ماهی",
+        "emoji": "🐟",
+        "resource": "fish",
+        "cost": 5,
+        "hunger": 40,
+        "hp": 20,
+        "xp": 15,
+    },
+}
 
 # Naming flow.
 DRAGON_NAME_MAX_LENGTH: int = 32

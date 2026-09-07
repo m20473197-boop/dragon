@@ -53,7 +53,9 @@ CREATE TABLE IF NOT EXISTS dragons (
     xp           INTEGER NOT NULL DEFAULT 0,
     hp           INTEGER NOT NULL DEFAULT 100,       -- current health
     max_hp       INTEGER NOT NULL DEFAULT 100,
-    power        INTEGER NOT NULL DEFAULT 20,        -- attack power
+    power        INTEGER NOT NULL DEFAULT 20,        -- base attack power
+    hunger       INTEGER NOT NULL DEFAULT 100,       -- fullness 0..100 (100 = full)
+    last_fed_time REAL,                              -- unix timestamp of last feeding
     from_egg_id  INTEGER,
     born_at      TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (owner_id)   REFERENCES players (user_id),

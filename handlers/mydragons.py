@@ -5,20 +5,33 @@ combat/PvP here — this is the dragon management/inspection view.
 """
 from __future__ import annotations
 
+import time
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from game.dragons import dragon_type_display
+from config import HUNGER_LOW_THRESHOLD
+from game.dragons import current_hunger, dragon_type_display, effective_power
 from utils.text import to_fa
 
 
 def _format_dragon(dragon, index: int, total: int) -> list[str]:
     emoji, type_name = dragon_type_display(dragon.dragon_type)
+    hunger = current_hunger(dragon, time.time())
+    power = effective_power(dragon.power, hunger)
     lines: list[str] = []
     # A heading per dragon when the player owns several.
     if total > 1:
         lines.append(f"🐲 اژدهای {to_fa(index)}")
         lines.append("")
+
+    if hunger < HUNGER_LOW_THRESHOLD:
+        hunger_line = f"🍗 سیری: {to_fa(hunger)}٪ (گرسنه!)"
+        power_line = f"🔥 قدرت: {to_fa(power)} (از {to_fa(dragon.power)}، کم‌شده به خاطر گرسنگی)"
+    else:
+        hunger_line = f"🍗 سیری: {to_fa(hunger)}٪"
+        power_line = f"🔥 قدرت: {to_fa(dragon.power)}"
+
     lines.extend(
         [
             "🐉 اژدهای من",
@@ -28,7 +41,8 @@ def _format_dragon(dragon, index: int, total: int) -> list[str]:
             f"⭐ سطح: {to_fa(dragon.level)}",
             f"✨ تجربه: {to_fa(dragon.xp)} / {to_fa(dragon.xp_required_for_next_level())}",
             f"❤️ سلامت: {to_fa(dragon.hp)} / {to_fa(dragon.max_hp)}",
-            f"🔥 قدرت: {to_fa(dragon.power)}",
+            hunger_line,
+            power_line,
         ]
     )
     return lines

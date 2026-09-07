@@ -122,6 +122,23 @@ class PlayerRepository:
                 (timestamp, user_id),
             )
 
+    def spend_resource(self, user_id: int, column: str, amount: int, conn=None) -> bool:
+        """Atomically spend ``amount`` of a resource (meat/fish).
+
+        The update only succeeds if the player has enough, so concurrent calls
+        cannot spend the same resource twice. Returns True on success.
+        """
+        if column not in ("meat", "fish"):
+            raise ValueError(f"spend_resource only supports meat/fish, got {column!r}")
+        if amount < 0:
+            raise ValueError("amount must be non-negative")
+        with db_scope(conn) as c:
+            cur = c.execute(
+                f"UPDATE players SET {column} = {column} - ? WHERE user_id = ? AND {column} >= ?",
+                (amount, user_id, amount),
+            )
+            return cur.rowcount == 1
+
     # --- atomic cooldown actions ------------------------------------------
     def try_start_action(
         self,

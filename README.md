@@ -42,6 +42,21 @@ Send these as normal messages in the group (no `/`):
 | `تخم ها`    | My eggs / inventory | Lists your incubating eggs: type + time until hatching, plus dragons/meat/fish. |
 | `اژدهای من` | My dragons       | Shows each dragon's نام (name), نوع (type), ⭐ سطح (level), ✨ تجربه (current/required XP), ❤️ سلامت (HP), 🔥 قدرت (power). |
 | `نام اژدها` | Name dragon      | The bot asks for a name; your next message names your most recent dragon. Sending a game command cancels it. |
+| `غذا بده`   | Feed dragon      | Shows your stored 🥩/🐟 with buttons to feed your newest dragon (consumes food, heals, grants XP, restores hunger). |
+
+### Hunger & feeding
+
+- **Hunger:** every dragon has a `hunger` percentage (stored; **100 = full** at
+  birth). It decays **20 points per hour**. At or above 30 the dragon fights at
+  full power; below 30 its **effective power** scales down to 50% at 0 hunger
+  (`game/dragons.py::effective_power`, ready for combat).
+- **Feeding (`غذا بده`):** shows your food and two buttons:
+  - 🥩 **گوشت** — consumes 3 meat → restores hunger, +HP, +XP
+  - 🐟 **ماهی** — consumes 5 fish → restores hunger, +HP, +XP
+
+  Food is spent atomically (`spend_resource`, guarded `UPDATE`), so rapid taps
+  can never over-spend. Feeding XP can trigger level-ups (+max HP/power and full
+  heal). Logic lives in `game/feeding.py` (`FeedingService`).
 
 ### Dragon growth
 

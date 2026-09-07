@@ -24,6 +24,7 @@ from telegram.ext import (
 
 from config import (
     COMMAND_EGGS,
+    COMMAND_FEED,
     COMMAND_FISHING,
     COMMAND_HUNT,
     COMMAND_MY_DRAGONS,
@@ -33,9 +34,11 @@ from config import (
 )
 from game.dragons import DragonService
 from game.eggs import EggService
+from game.feeding import FeedingService
 from handlers.common import help_command, start_command
 from handlers.eggs import eggs_command
 from handlers.errors import on_error
+from handlers.feed import FEED_PREFIX, feed_callback, feed_command
 from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.jobs import hatch_sweep, spawn_tick
@@ -58,6 +61,7 @@ COMMAND_MAP = {
     COMMAND_EGGS: eggs_command,
     COMMAND_MY_DRAGONS: my_dragons_command,
     COMMAND_NAME_DRAGON: name_dragon_command,
+    COMMAND_FEED: feed_command,
 }
 
 
@@ -94,6 +98,10 @@ def _setup_shared_objects(application: Application) -> None:
     application.bot_data["dragon_service"] = DragonService(
         dragons=application.bot_data["dragon_repo"]
     )
+    application.bot_data["feeding_service"] = FeedingService(
+        dragons=application.bot_data["dragon_repo"],
+        players=application.bot_data["player_repo"],
+    )
     application.bot_data["egg_service"] = EggService(
         eggs=application.bot_data["egg_repo"],
         dragons=application.bot_data["dragon_repo"],
@@ -129,6 +137,11 @@ def register_all(application: Application) -> None:
     # Inline-button claim: "claim_egg:<id>"
     application.add_handler(
         CallbackQueryHandler(claim_callback, pattern=rf"^{CLAIM_PREFIX}\d+$")
+    )
+
+    # Inline-button feeding: "feed:<food>"
+    application.add_handler(
+        CallbackQueryHandler(feed_callback, pattern=rf"^{FEED_PREFIX}(meat|fish)$")
     )
 
     # Persian word commands (no slash). ~filters.COMMAND ignores "/..." messages.

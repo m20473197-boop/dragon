@@ -22,11 +22,15 @@ from typing import Optional
 from config import (
     DEFAULT_DRAGON_NAME,
     DRAGON_DEFAULT_HP,
+    DRAGON_DEFAULT_HUNGER,
     DRAGON_DEFAULT_LEVEL,
     DRAGON_DEFAULT_MAX_HP,
     DRAGON_DEFAULT_POWER,
     DRAGON_DEFAULT_XP,
     DRAGON_TYPES,
+    HUNGER_DECAY_PER_HOUR,
+    HUNGER_LOW_THRESHOLD,
+    HUNGER_MIN_POWER_FACTOR,
     LEVEL_UP_MAX_HP_BONUS,
     LEVEL_UP_POWER_BONUS,
     XP_PER_LEVEL_BASE,
@@ -38,6 +42,36 @@ from models.dragon import Dragon, DragonRepository
 def xp_required_for_level(level: int) -> int:
     """XP required to advance from ``level`` to ``level + 1``."""
     return level * XP_PER_LEVEL_BASE
+
+
+def current_hunger(dragon: Dragon, now: float) -> int:
+    """Effective hunger 0..100 after applying time-based decay.
+
+    Hunger is stored at full (100) on birth/feeding with a ``last_fed_time``;
+    it decays over time. Legacy rows without a timestamp are treated as full.
+    """
+    if dragon.last_fed_time is None:
+        return DRAGON_DEFAULT_HUNGER
+    hours = (now - dragon.last_fed_time) / 3600.0
+    decayed = DRAGON_DEFAULT_HUNGER - hours * HUNGER_DECAY_PER_HOUR
+    return int(max(0, min(DRAGON_DEFAULT_HUNGER, round(decayed))))
+
+
+def effective_power(base_power: int, hunger: int) -> int:
+    """Actual attack power for a given hunger.
+
+    At/above ``HUNGER_LOW_THRESHOLD`` the dragon fights at full base power;
+    below it power scales down linearly to ``HUNGER_MIN_POWER_FACTOR`` (50%)
+    at 0 hunger. This does not change the stored stat — it is the combat-ready
+    value the future battle system will use.
+    """
+    if hunger >= HUNGER_LOW_THRESHOLD:
+        return base_power
+    # Linear ramp from 50% (hunger 0) to 100% (hunger = threshold).
+    factor = HUNGER_MIN_POWER_FACTOR + (
+        (1.0 - HUNGER_MIN_POWER_FACTOR) * (hunger / HUNGER_LOW_THRESHOLD)
+    )
+    return int(round(base_power * factor))
 
 
 @dataclass
@@ -74,11 +108,15 @@ class DragonService:
         owner_id: int,
         dragon_type: str,
         from_egg_id: Optional[int] = None,
+        now: Optional[float] = None,
         conn=None,
     ) -> Dragon:
         """Create a level-1 dragon with default stats for its owner."""
+        import time
+
         if dragon_type not in DRAGON_TYPES:
             raise ValueError(f"Unknown dragon type: {dragon_type!r}")
+        now = now if now is not None else time.time()
         return self.dragons.create(
             owner_id=owner_id,
             dragon_type=dragon_type,
@@ -89,6 +127,8 @@ class DragonService:
             hp=DRAGON_DEFAULT_HP,
             max_hp=DRAGON_DEFAULT_MAX_HP,
             power=DRAGON_DEFAULT_POWER,
+            hunger=DRAGON_DEFAULT_HUNGER,
+            last_fed_time=now,
             conn=conn,
         )
 

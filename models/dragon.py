@@ -12,6 +12,7 @@ from typing import Optional
 from config import (
     DEFAULT_DRAGON_NAME,
     DRAGON_DEFAULT_HP,
+    DRAGON_DEFAULT_HUNGER,
     DRAGON_DEFAULT_LEVEL,
     DRAGON_DEFAULT_MAX_HP,
     DRAGON_DEFAULT_POWER,
@@ -32,6 +33,8 @@ class Dragon:
     hp: int = DRAGON_DEFAULT_HP
     max_hp: int = DRAGON_DEFAULT_MAX_HP
     power: int = DRAGON_DEFAULT_POWER
+    hunger: int = DRAGON_DEFAULT_HUNGER
+    last_fed_time: Optional[float] = None
     from_egg_id: Optional[int] = None
     born_at: Optional[str] = None
 
@@ -47,6 +50,8 @@ class Dragon:
             hp=row["hp"],
             max_hp=row["max_hp"],
             power=row["power"],
+            hunger=row["hunger"],
+            last_fed_time=row["last_fed_time"],
             from_egg_id=row["from_egg_id"],
             born_at=row["born_at"],
         )
@@ -68,6 +73,8 @@ class DragonRepository:
         hp: int = DRAGON_DEFAULT_HP,
         max_hp: int = DRAGON_DEFAULT_MAX_HP,
         power: int = DRAGON_DEFAULT_POWER,
+        hunger: int = DRAGON_DEFAULT_HUNGER,
+        last_fed_time: Optional[float] = None,
         conn=None,
     ) -> Dragon:
         """Insert a new dragon with explicit (default) stats.
@@ -79,10 +86,12 @@ class DragonRepository:
             cur = c.execute(
                 """
                 INSERT INTO dragons
-                    (owner_id, name, dragon_type, level, xp, hp, max_hp, power, from_egg_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (owner_id, name, dragon_type, level, xp, hp, max_hp, power,
+                     hunger, last_fed_time, from_egg_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (owner_id, name, dragon_type, level, xp, hp, max_hp, power, from_egg_id),
+                (owner_id, name, dragon_type, level, xp, hp, max_hp, power,
+                 hunger, last_fed_time, from_egg_id),
             )
             dragon_id = cur.lastrowid
         return Dragon(
@@ -95,6 +104,8 @@ class DragonRepository:
             hp=hp,
             max_hp=max_hp,
             power=power,
+            hunger=hunger,
+            last_fed_time=last_fed_time,
             from_egg_id=from_egg_id,
         )
 
@@ -143,6 +154,39 @@ class DragonRepository:
                 """,
                 (level, xp, hp, max_hp, power, dragon_id),
             )
+
+    def update_full_stats(
+        self,
+        dragon_id: int,
+        level: int,
+        xp: int,
+        hp: int,
+        max_hp: int,
+        power: int,
+        hunger: int,
+        last_fed_time: Optional[float],
+        conn=None,
+    ) -> None:
+        """Persist all dragon stats (used after feeding)."""
+        with db_scope(conn) as c:
+            c.execute(
+                """
+                UPDATE dragons
+                   SET level = ?, xp = ?, hp = ?, max_hp = ?, power = ?,
+                       hunger = ?, last_fed_time = ?
+                 WHERE id = ?
+                """,
+                (level, xp, hp, max_hp, power, hunger, last_fed_time, dragon_id),
+            )
+
+    def newest_for_owner(self, owner_id: int, conn=None) -> Optional[Dragon]:
+        """The owner's most recently hatched dragon, or None."""
+        with db_scope(conn) as c:
+            row = c.execute(
+                "SELECT * FROM dragons WHERE owner_id = ? ORDER BY id DESC LIMIT 1",
+                (owner_id,),
+            ).fetchone()
+        return Dragon.from_row(row) if row is not None else None
 
     def count_by_owner(self, owner_id: int, conn=None) -> int:
         with db_scope(conn) as c:

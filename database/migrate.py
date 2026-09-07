@@ -12,6 +12,7 @@ import logging
 from config import (
     DEFAULT_DRAGON_NAME,
     DRAGON_DEFAULT_HP,
+    DRAGON_DEFAULT_HUNGER,
     DRAGON_DEFAULT_LEVEL,
     DRAGON_DEFAULT_MAX_HP,
     DRAGON_DEFAULT_POWER,
@@ -30,6 +31,8 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
         "hp": f"INTEGER NOT NULL DEFAULT {DRAGON_DEFAULT_HP}",
         "max_hp": f"INTEGER NOT NULL DEFAULT {DRAGON_DEFAULT_MAX_HP}",
         "power": f"INTEGER NOT NULL DEFAULT {DRAGON_DEFAULT_POWER}",
+        "hunger": f"INTEGER NOT NULL DEFAULT {DRAGON_DEFAULT_HUNGER}",
+        "last_fed_time": "REAL",
     },
 }
 
