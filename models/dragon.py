@@ -16,6 +16,7 @@ from config import (
     DRAGON_DEFAULT_MAX_HP,
     DRAGON_DEFAULT_POWER,
     DRAGON_DEFAULT_XP,
+    XP_PER_LEVEL_BASE,
 )
 from database.connection import db_scope
 
@@ -49,6 +50,10 @@ class Dragon:
             from_egg_id=row["from_egg_id"],
             born_at=row["born_at"],
         )
+
+    def xp_required_for_next_level(self) -> int:
+        """XP needed to advance from the current level to the next one."""
+        return self.level * XP_PER_LEVEL_BASE
 
 
 class DragonRepository:
@@ -99,6 +104,45 @@ class DragonRepository:
                 "SELECT * FROM dragons WHERE id = ?", (dragon_id,)
             ).fetchone()
         return Dragon.from_row(row) if row is not None else None
+
+    def get_owned(self, dragon_id: int, owner_id: int, conn=None) -> Optional[Dragon]:
+        """Fetch a dragon only if it belongs to the given owner."""
+        with db_scope(conn) as c:
+            row = c.execute(
+                "SELECT * FROM dragons WHERE id = ? AND owner_id = ?",
+                (dragon_id, owner_id),
+            ).fetchone()
+        return Dragon.from_row(row) if row is not None else None
+
+    def set_name(self, dragon_id: int, owner_id: int, name: str, conn=None) -> bool:
+        """Rename a dragon. Returns False if it is not owned by ``owner_id``."""
+        with db_scope(conn) as c:
+            cur = c.execute(
+                "UPDATE dragons SET name = ? WHERE id = ? AND owner_id = ?",
+                (name, dragon_id, owner_id),
+            )
+            return cur.rowcount == 1
+
+    def update_growth(
+        self,
+        dragon_id: int,
+        level: int,
+        xp: int,
+        hp: int,
+        max_hp: int,
+        power: int,
+        conn=None,
+    ) -> None:
+        """Persist new level/xp/hp/max_hp/power after XP gain / level up."""
+        with db_scope(conn) as c:
+            c.execute(
+                """
+                UPDATE dragons
+                   SET level = ?, xp = ?, hp = ?, max_hp = ?, power = ?
+                 WHERE id = ?
+                """,
+                (level, xp, hp, max_hp, power, dragon_id),
+            )
 
     def count_by_owner(self, owner_id: int, conn=None) -> int:
         with db_scope(conn) as c:

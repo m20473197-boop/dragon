@@ -9,6 +9,7 @@ from config import (
     COMMAND_FISHING,
     COMMAND_HUNT,
     COMMAND_MY_DRAGONS,
+    COMMAND_NAME_DRAGON,
 )
 from handlers.tracking import track_from_update
 
@@ -17,12 +18,14 @@ WELCOME_TEXT = (
     "در گروه، تخم اژدهاها تصادفی ظاهر می‌شن؛ با دکمه «🥚 نگهداری از تخم» سریع‌تر "
     "از بقیه اون‌ها رو بردار!\n"
     "با شکار و ماهیگیری هم ممکنه تخم پیدا کنی. وقتی زمان پرورش تموم بشه، اژدها "
-    "خودکار از تخم بیرون میاد. 🐲\n\n"
+    "خودکار از تخم بیرون میاد. 🐲\n"
+    "با شکار و ماهیگیری به اژدهات تجربه بده تا Level Up کنه و قوی‌تر بشه!\n\n"
     "📜 دستورهای بازی (بدون اسلش /):\n"
     f"🏹 {COMMAND_HUNT} — شکار حیوانات و گرفتن گوشت\n"
     f"🎣 {COMMAND_FISHING} — صید ماهی\n"
     f"🥚 {COMMAND_EGGS} — دیدن تخم‌ها و زمان باز شدنشون\n"
-    f"🐉 {COMMAND_MY_DRAGONS} — دیدن اژدهاهات و مشخصاتشون\n\n"
+    f"🐉 {COMMAND_MY_DRAGONS} — دیدن اژدهاهات و مشخصاتشون\n"
+    f"📛 {COMMAND_NAME_DRAGON} — تعیین نام برای اژدها\n\n"
     "کافیه دستور رو توی گروه بفرستی!"
 )
 

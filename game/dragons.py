@@ -1,12 +1,22 @@
-"""Dragon management rules (no Telegram code here).
+"""Dragon management & growth rules (no Telegram code here).
 
-Owns creating newborn dragons from hatched eggs and reading a player's
-dragons. Stats/levelling/combat are intentionally minimal for now: every
-dragon is born with the default stats from ``config`` and the random type is
-chosen by the egg's rarity pool in :class:`game.eggs.EggService`.
+Responsibilities:
+
+* create newborn dragons from hatched eggs,
+* rename a dragon,
+* award XP and resolve level-ups (max HP / power increases and HP restore).
+
+The leveling math is intentionally simple so the future combat system can
+grant XP through the same :meth:`DragonService.add_xp` entry point:
+
+* XP needed to go from ``level`` to ``level + 1`` is
+  ``level * XP_PER_LEVEL_BASE`` (1->2 costs 100, 2->3 costs 200, ...).
+* Each level grants ``LEVEL_UP_MAX_HP_BONUS`` max HP and
+  ``LEVEL_UP_POWER_BONUS`` power, and fully restores HP.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Optional
 
 from config import (
@@ -17,14 +27,48 @@ from config import (
     DRAGON_DEFAULT_POWER,
     DRAGON_DEFAULT_XP,
     DRAGON_TYPES,
+    LEVEL_UP_MAX_HP_BONUS,
+    LEVEL_UP_POWER_BONUS,
+    XP_PER_LEVEL_BASE,
 )
+from database.connection import get_db
 from models.dragon import Dragon, DragonRepository
+
+
+def xp_required_for_level(level: int) -> int:
+    """XP required to advance from ``level`` to ``level + 1``."""
+    return level * XP_PER_LEVEL_BASE
+
+
+@dataclass
+class LevelUpEvent:
+    """A single level gained by a dragon (used to build announcements)."""
+
+    dragon_id: int
+    name: str
+    new_level: int
+    max_hp_gained: int
+    power_gained: int
+
+
+@dataclass
+class XpResult:
+    """Outcome of awarding XP to one dragon."""
+
+    dragon: Dragon
+    xp_added: int
+    level_ups: list[LevelUpEvent] = field(default_factory=list)
+
+    @property
+    def leveled_up(self) -> bool:
+        return bool(self.level_ups)
 
 
 class DragonService:
     def __init__(self, dragons: Optional[DragonRepository] = None) -> None:
         self.dragons = dragons or DragonRepository()
 
+    # --- creation ----------------------------------------------------------
     def create_newborn(
         self,
         owner_id: int,
@@ -48,11 +92,85 @@ class DragonService:
             conn=conn,
         )
 
+    # --- reading -----------------------------------------------------------
     def list_for_owner(self, owner_id: int) -> list[Dragon]:
         return self.dragons.list_by_owner(owner_id)
 
     def count_for_owner(self, owner_id: int) -> int:
         return self.dragons.count_by_owner(owner_id)
+
+    def newest_for_owner(self, owner_id: int) -> Optional[Dragon]:
+        """The owner's most recently hatched dragon, or None."""
+        dragons = self.dragons.list_by_owner(owner_id)
+        return dragons[0] if dragons else None
+
+    # --- naming ------------------------------------------------------------
+    def rename(
+        self, owner_id: int, dragon_id: int, name: str, conn=None
+    ) -> Optional[Dragon]:
+        """Rename a dragon owned by ``owner_id``.
+
+        Returns the updated dragon, or ``None`` if the caller does not own it.
+        """
+        name = name.strip()
+        if not self.dragons.set_name(dragon_id, owner_id, name, conn=conn):
+            return None
+        return self.dragons.get_owned(dragon_id, owner_id, conn=conn)
+
+    # --- XP / leveling -----------------------------------------------------
+    def add_xp(self, dragon_id: int, xp_amount: int) -> Optional[XpResult]:
+        """Award XP to a dragon and resolve any level-ups atomically.
+
+        Returns the :class:`XpResult`, or ``None`` if the dragon does not
+        exist. The whole gain (possibly spanning several levels) is persisted
+        in one transaction.
+        """
+        if xp_amount <= 0:
+            dragon = self.dragons.get(dragon_id)
+            return None if dragon is None else XpResult(dragon=dragon, xp_added=0)
+
+        with get_db() as conn:
+            dragon = self.dragons.get(dragon_id, conn=conn)
+            if dragon is None:
+                return None
+
+            level_ups: list[LevelUpEvent] = []
+            xp = dragon.xp + xp_amount
+            level = dragon.level
+            max_hp = dragon.max_hp
+            power = dragon.power
+
+            # Resolve all level-ups contained in this XP grant.
+            while xp >= xp_required_for_level(level):
+                xp -= xp_required_for_level(level)
+                level += 1
+                max_hp += LEVEL_UP_MAX_HP_BONUS
+                power += LEVEL_UP_POWER_BONUS
+                level_ups.append(
+                    LevelUpEvent(
+                        dragon_id=dragon.id,
+                        name=dragon.name,
+                        new_level=level,
+                        max_hp_gained=LEVEL_UP_MAX_HP_BONUS,
+                        power_gained=LEVEL_UP_POWER_BONUS,
+                    )
+                )
+
+            # On any level-up the dragon is healed to the new max HP.
+            hp = max_hp if level_ups else dragon.hp
+
+            self.dragons.update_growth(
+                dragon.id,
+                level=level,
+                xp=xp,
+                hp=hp,
+                max_hp=max_hp,
+                power=power,
+                conn=conn,
+            )
+            updated = self.dragons.get(dragon_id, conn=conn)
+
+        return XpResult(dragon=updated, xp_added=xp_amount, level_ups=level_ups)
 
 
 def dragon_type_display(dragon_type: str) -> tuple[str, str]:

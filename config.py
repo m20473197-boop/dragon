@@ -30,6 +30,7 @@ COMMAND_HUNT = "شکار"
 COMMAND_FISHING = "ماهیگیری"
 COMMAND_EGGS = "تخم ها"
 COMMAND_MY_DRAGONS = "اژدهای من"
+COMMAND_NAME_DRAGON = "نام اژدها"
 
 # Default name assigned to a freshly hatched dragon until the owner renames it.
 DEFAULT_DRAGON_NAME = "بدون نام"
@@ -40,6 +41,22 @@ DRAGON_DEFAULT_XP = 0
 DRAGON_DEFAULT_HP = 100
 DRAGON_DEFAULT_MAX_HP = 100
 DRAGON_DEFAULT_POWER = 20
+
+# --- Dragon growth ----------------------------------------------------------
+# XP needed to go from `level` to `level + 1` is `level * XP_PER_LEVEL_BASE`
+# (level 1 -> 2 costs 100 XP, 2 -> 3 costs 200, ...). Kept deliberately simple
+# so the future combat system can grant XP against the same formula.
+XP_PER_LEVEL_BASE: int = 100
+LEVEL_UP_MAX_HP_BONUS: int = 20   # max HP gained per level
+LEVEL_UP_POWER_BONUS: int = 5     # power gained per level
+
+# XP awarded to the owner's dragons for a successful gathering action.
+HUNT_XP: int = 25
+FISH_XP: int = 15
+
+# Naming flow.
+DRAGON_NAME_MAX_LENGTH: int = 32
+NAME_PROMPT_TIMEOUT_SECONDS: int = 120  # how long the bot waits for a name
 
 # --- Gathering balance ------------------------------------------------------
 HUNT_COOLDOWN_SECONDS: int = 5 * 60       # time between hunts (spam protection)

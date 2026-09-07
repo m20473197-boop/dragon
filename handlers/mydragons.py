@@ -26,7 +26,7 @@ def _format_dragon(dragon, index: int, total: int) -> list[str]:
             f"📛 نام: {dragon.name}",
             f"{emoji} نوع: {type_name}",
             f"⭐ سطح: {to_fa(dragon.level)}",
-            f"✨ تجربه: {to_fa(dragon.xp)}",
+            f"✨ تجربه: {to_fa(dragon.xp)} / {to_fa(dragon.xp_required_for_next_level())}",
             f"❤️ سلامت: {to_fa(dragon.hp)} / {to_fa(dragon.max_hp)}",
             f"🔥 قدرت: {to_fa(dragon.power)}",
         ]

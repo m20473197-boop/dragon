@@ -27,6 +27,7 @@ from config import (
     COMMAND_FISHING,
     COMMAND_HUNT,
     COMMAND_MY_DRAGONS,
+    COMMAND_NAME_DRAGON,
     HATCH_SWEEP_INTERVAL_SECONDS,
     SPAWN_CHECK_INTERVAL_SECONDS,
 )
@@ -39,6 +40,7 @@ from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.jobs import hatch_sweep, spawn_tick
 from handlers.mydragons import my_dragons_command
+from handlers.name_dragon import capture_dragon_name, name_dragon_command
 from handlers.spawn import CLAIM_PREFIX, claim_callback
 from handlers.tracking import track_from_update
 from models.chat import ChatRepository
@@ -55,6 +57,7 @@ COMMAND_MAP = {
     COMMAND_FISHING: fishing_command,
     COMMAND_EGGS: eggs_command,
     COMMAND_MY_DRAGONS: my_dragons_command,
+    COMMAND_NAME_DRAGON: name_dragon_command,
 }
 
 
@@ -71,9 +74,15 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     text = normalize_command(message.text)
 
-    handler = COMMAND_MAP.get(text)
-    if handler is not None:
+    # If this message is a known game command, it runs normally and cancels any
+    # open naming prompt (handled inside the capture). Otherwise, if the user is
+    # mid "نام اژدها" flow, the message is treated as the dragon name.
+    if text in COMMAND_MAP:
+        handler = COMMAND_MAP[text]
         await handler(update, context)
+        return
+
+    await capture_dragon_name(update, context)
 
 
 def _setup_shared_objects(application: Application) -> None:

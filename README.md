@@ -40,7 +40,26 @@ Send these as normal messages in the group (no `/`):
 | `شکار`      | Hunt             | Catch a random animal (🐇 خرگوش / 🦌 گوزن / 🦌 غزال) for 1–9 🥩 meat. 15% chance to **find an egg** (auto-owned). 5 min cooldown (spam-protected). |
 | `ماهیگیری`  | Fishing          | Catch 10–20 🐟 fish. 10% chance to **find an egg** (auto-owned). 10 min cooldown. |
 | `تخم ها`    | My eggs / inventory | Lists your incubating eggs: type + time until hatching, plus dragons/meat/fish. |
-| `اژدهای من` | My dragons       | Shows each dragon's نام (name), نوع (type), ⭐ سطح (level), ✨ تجربه (XP), ❤️ سلامت (HP), 🔥 قدرت (power). |
+| `اژدهای من` | My dragons       | Shows each dragon's نام (name), نوع (type), ⭐ سطح (level), ✨ تجربه (current/required XP), ❤️ سلامت (HP), 🔥 قدرت (power). |
+| `نام اژدها` | Name dragon      | The bot asks for a name; your next message names your most recent dragon. Sending a game command cancels it. |
+
+### Dragon growth
+
+- **Naming:** send `نام اژدها`, then reply with a name (1–32 characters). The
+  name is saved on the dragon (ownership-checked).
+- **XP & leveling:** successful `شکار` (+25 XP) and `ماهیگیری` (+15 XP) award XP
+  to your newest dragon. The XP needed to advance from level *L* to *L+1* is
+  `L × 100` (1→2 costs 100, 2→3 costs 200, …). On level-up the dragon gains
+  **+20 max HP**, **+5 power** and is **fully healed**:
+
+  > 🎉 اژدهای «رخش» Level Up شد!
+  > ⭐ Level: ۲
+  > ❤️ +۲۰ Max HP
+  > 🔥 +۵ Power
+
+  The growth engine lives in `game/dragons.py` (`DragonService.add_xp`); a
+  single XP grant can cross multiple levels and is applied atomically. No
+  combat/PvP yet — the same `add_xp` entry point is ready for future battles.
 
 ### Dragon data system
 

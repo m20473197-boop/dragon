@@ -4,9 +4,10 @@ from __future__ import annotations
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from config import HUNT_PREY
+from config import HUNT_PREY, HUNT_XP
 from game import actions
 from game.eggs import egg_display
+from handlers.growth import award_and_announce
 from utils.text import format_remaining, to_fa
 
 
@@ -44,6 +45,8 @@ async def hunt_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         lines.append("")
         lines.append(f"{emoji} یک <b>{name}</b> هم پیدا کردی و تخم رو برداشتی!")
         await message.reply_html("\n".join(lines))
-        return
+    else:
+        await message.reply_text("\n".join(lines))
 
-    await message.reply_text("\n".join(lines))
+    # Gathering gives the owner's newest dragon XP (level-ups are announced).
+    await award_and_announce(context, update.effective_chat.id, user.id, HUNT_XP)
