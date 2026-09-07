@@ -37,9 +37,25 @@ Send these as normal messages in the group (no `/`):
 
 | Command    | Meaning          | Effect                                                        |
 |------------|------------------|--------------------------------------------------------------|
-| `شکار`     | Hunt             | Catch a random animal (🐇 خرگوش / 🦌 گوزن / 🦌 غزال) for 1–9 🥩 meat. 15% chance to **find an egg** (auto-owned). 5 min cooldown (spam-protected). |
-| `ماهیگیری` | Fishing          | Catch 10–20 🐟 fish. 10% chance to **find an egg** (auto-owned). 10 min cooldown. |
-| `تخم ها`   | My eggs / inventory | Lists your incubating eggs: type + time until hatching, plus dragons/meat/fish. |
+| `شکار`      | Hunt             | Catch a random animal (🐇 خرگوش / 🦌 گوزن / 🦌 غزال) for 1–9 🥩 meat. 15% chance to **find an egg** (auto-owned). 5 min cooldown (spam-protected). |
+| `ماهیگیری`  | Fishing          | Catch 10–20 🐟 fish. 10% chance to **find an egg** (auto-owned). 10 min cooldown. |
+| `تخم ها`    | My eggs / inventory | Lists your incubating eggs: type + time until hatching, plus dragons/meat/fish. |
+| `اژدهای من` | My dragons       | Shows each dragon's نام (name), نوع (type), ⭐ سطح (level), ✨ تجربه (XP), ❤️ سلامت (HP), 🔥 قدرت (power). |
+
+### Dragon data system
+
+When an egg hatches, a new dragon row is created for the owner with a random
+type (from the egg's rarity pool) and default stats:
+
+- **name:** `بدون نام` (unnamed — ready for a future rename feature)
+- **type:** random dragon type (e.g. 🔥 اژدهای آتشین)
+- **level:** 1 · **xp:** 0 · **hp / max_hp:** 100 / 100 · **power:** 20
+
+The `dragons` table stores `id, owner_id, name, type, level, xp, hp, max_hp,
+power` (plus `from_egg_id`, `born_at`). On startup `database/migrate.py`
+adds any missing columns to older databases, so existing installs upgrade in
+place. Dragon creation/reading lives in `game/dragons.py` (`DragonService`);
+no combat or PvP yet.
 
 Both gathering actions are cooldown-protected (the bot remembers and saves the
 last hunt/fishing time per user and rejects spam with a live wait timer).

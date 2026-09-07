@@ -21,6 +21,7 @@ from config import (
     EGG_TYPES,
 )
 from database.connection import get_db
+from game.dragons import DragonService
 from models.dragon import Dragon, DragonRepository
 from models.egg import (
     Egg,
@@ -48,10 +49,14 @@ class EggService:
         eggs: Optional[EggRepository] = None,
         dragons: Optional[DragonRepository] = None,
         players: Optional[PlayerRepository] = None,
+        dragon_service: Optional[DragonService] = None,
     ) -> None:
         self.eggs = eggs or EggRepository()
         self.dragons = dragons or DragonRepository()
         self.players = players or PlayerRepository()
+        # The dragon service creates newborn dragons; it reuses the same
+        # repository so the service and repository stay in sync.
+        self.dragon_service = dragon_service or DragonService(dragons=self.dragons)
 
     # --- randomness --------------------------------------------------------
     @staticmethod
@@ -149,7 +154,8 @@ class EggService:
                 # Idempotent guard: only the first transition succeeds.
                 if not self.eggs.transition_to_hatched(egg.id, now, conn=conn):
                     continue
-                dragon = self.dragons.create(
+                # Create the newborn dragon (level 1, default stats).
+                dragon = self.dragon_service.create_newborn(
                     owner_id=egg.owner_id,
                     dragon_type=dragon_type,
                     from_egg_id=egg.id,

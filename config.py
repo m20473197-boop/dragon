@@ -29,6 +29,17 @@ DB_PATH: Path = Path(os.environ.get("DRAGON_DB_PATH", str(BASE_DIR / "dragon.db"
 COMMAND_HUNT = "شکار"
 COMMAND_FISHING = "ماهیگیری"
 COMMAND_EGGS = "تخم ها"
+COMMAND_MY_DRAGONS = "اژدهای من"
+
+# Default name assigned to a freshly hatched dragon until the owner renames it.
+DEFAULT_DRAGON_NAME = "بدون نام"
+
+# Default stats every dragon is born with (per requirement).
+DRAGON_DEFAULT_LEVEL = 1
+DRAGON_DEFAULT_XP = 0
+DRAGON_DEFAULT_HP = 100
+DRAGON_DEFAULT_MAX_HP = 100
+DRAGON_DEFAULT_POWER = 20
 
 # --- Gathering balance ------------------------------------------------------
 HUNT_COOLDOWN_SECONDS: int = 5 * 60       # time between hunts (spam protection)

@@ -26,9 +26,11 @@ from config import (
     COMMAND_EGGS,
     COMMAND_FISHING,
     COMMAND_HUNT,
+    COMMAND_MY_DRAGONS,
     HATCH_SWEEP_INTERVAL_SECONDS,
     SPAWN_CHECK_INTERVAL_SECONDS,
 )
+from game.dragons import DragonService
 from game.eggs import EggService
 from handlers.common import help_command, start_command
 from handlers.eggs import eggs_command
@@ -36,6 +38,7 @@ from handlers.errors import on_error
 from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.jobs import hatch_sweep, spawn_tick
+from handlers.mydragons import my_dragons_command
 from handlers.spawn import CLAIM_PREFIX, claim_callback
 from handlers.tracking import track_from_update
 from models.chat import ChatRepository
@@ -51,6 +54,7 @@ COMMAND_MAP = {
     COMMAND_HUNT: hunt_command,
     COMMAND_FISHING: fishing_command,
     COMMAND_EGGS: eggs_command,
+    COMMAND_MY_DRAGONS: my_dragons_command,
 }
 
 
@@ -78,10 +82,14 @@ def _setup_shared_objects(application: Application) -> None:
     application.bot_data["chat_repo"] = ChatRepository()
     application.bot_data["egg_repo"] = EggRepository()
     application.bot_data["dragon_repo"] = DragonRepository()
+    application.bot_data["dragon_service"] = DragonService(
+        dragons=application.bot_data["dragon_repo"]
+    )
     application.bot_data["egg_service"] = EggService(
         eggs=application.bot_data["egg_repo"],
         dragons=application.bot_data["dragon_repo"],
         players=application.bot_data["player_repo"],
+        dragon_service=application.bot_data["dragon_service"],
     )
 
 

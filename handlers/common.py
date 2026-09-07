@@ -4,7 +4,12 @@ from __future__ import annotations
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from config import COMMAND_EGGS, COMMAND_FISHING, COMMAND_HUNT
+from config import (
+    COMMAND_EGGS,
+    COMMAND_FISHING,
+    COMMAND_HUNT,
+    COMMAND_MY_DRAGONS,
+)
 from handlers.tracking import track_from_update
 
 WELCOME_TEXT = (
@@ -16,7 +21,8 @@ WELCOME_TEXT = (
     "📜 دستورهای بازی (بدون اسلش /):\n"
     f"🏹 {COMMAND_HUNT} — شکار حیوانات و گرفتن گوشت\n"
     f"🎣 {COMMAND_FISHING} — صید ماهی\n"
-    f"🥚 {COMMAND_EGGS} — دیدن تخم‌ها و زمان باز شدنشون\n\n"
+    f"🥚 {COMMAND_EGGS} — دیدن تخم‌ها و زمان باز شدنشون\n"
+    f"🐉 {COMMAND_MY_DRAGONS} — دیدن اژدهاهات و مشخصاتشون\n\n"
     "کافیه دستور رو توی گروه بفرستی!"
 )
 

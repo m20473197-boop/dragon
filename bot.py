@@ -15,6 +15,7 @@ from telegram.ext import ApplicationBuilder
 
 from config import require_token
 from database.init_db import init_db
+from database.migrate import run_migrations
 from handlers import register_all
 
 logging.basicConfig(
@@ -32,6 +33,8 @@ def main() -> None:
 
     # Make sure tables exist before any update arrives.
     init_db()
+    # Bring older databases up to date (additive, idempotent).
+    run_migrations()
 
     logger.info("Starting Dragon bot...")
     application = ApplicationBuilder().token(token).build()

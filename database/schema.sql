@@ -46,8 +46,14 @@ CREATE INDEX IF NOT EXISTS idx_eggs_chat ON eggs (chat_id, status);
 -- Dragons born from hatched eggs.
 CREATE TABLE IF NOT EXISTS dragons (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    owner_id     INTEGER NOT NULL,
-    dragon_type  TEXT NOT NULL,                     -- key from config.DRAGON_TYPES
+    owner_id     INTEGER NOT NULL,                   -- Telegram user ID of the owner
+    name         TEXT NOT NULL,                      -- display name (default: بدون نام)
+    dragon_type  TEXT NOT NULL,                      -- key from config.DRAGON_TYPES
+    level        INTEGER NOT NULL DEFAULT 1,
+    xp           INTEGER NOT NULL DEFAULT 0,
+    hp           INTEGER NOT NULL DEFAULT 100,       -- current health
+    max_hp       INTEGER NOT NULL DEFAULT 100,
+    power        INTEGER NOT NULL DEFAULT 20,        -- attack power
     from_egg_id  INTEGER,
     born_at      TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (owner_id)   REFERENCES players (user_id),

@@ -115,7 +115,7 @@ def main() -> None:
     assert len(active_eggs) == 1 and active_eggs[0].id == found.id
     print("✓ found egg is owned, incubating, and listed in «تخم ها»")
 
-    # 9. Automatic hatching: due eggs become a random dragon.
+    # 9. Automatic hatching: due eggs become a random dragon with default stats.
     # Force both incubating eggs' hatch_time into the past.
     with get_db() as conn:
         conn.execute("UPDATE eggs SET hatch_time = ? WHERE status = 'incubating'", (t0 - 1,))
@@ -126,6 +126,12 @@ def main() -> None:
             "green", "fire", "ice", "golden", "shadow"
         }, ev.dragon.dragon_type
         assert ev.dragon.owner_id in {1001, 2002}
+        # Dragon data system: full stats present with default values.
+        assert ev.dragon.id is not None
+        assert ev.dragon.name == "بدون نام", ev.dragon.name
+        assert (ev.dragon.level, ev.dragon.xp) == (1, 0)
+        assert (ev.dragon.hp, ev.dragon.max_hp, ev.dragon.power) == (100, 100, 20)
+    print("✓ hatched dragons carry full default stats (name/level/xp/hp/power)")
     # Counters: eggs gone, dragons gained.
     assert players.get(1001).eggs == 0 and players.get(1001).dragons == 1
     assert players.get(2002).eggs == 0 and players.get(2002).dragons == 1
