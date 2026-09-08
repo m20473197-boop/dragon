@@ -130,7 +130,7 @@ def main() -> None:
     print("✓ rename targets the selected dragon and rejects foreign dragons")
 
     # 8. Upgrade view is about that dragon and lists its costs.
-    up = upgrade_menu_text(dragons.get(yakh.id), 10, 10)
+    up = upgrade_menu_text(dragons.get(yakh.id), 1000)
     assert "یخ پنجه" in up and "ارتقا" in up
     print("✓ upgrade page targets the selected dragon")
 

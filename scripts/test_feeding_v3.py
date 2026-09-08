@@ -72,7 +72,7 @@ def main() -> None:
     service = DragonService(dragons)
     storage = ColdStorageService(players)
     feeding = FeedingService(dragons=dragons, players=players, storage=storage)
-    upgrades = UpgradeService(dragons=dragons, players=players, storage=storage)
+    upgrades = UpgradeService(dragons=dragons, players=players)
 
     players.get_or_create(OWNER, "owner")
     players.get_or_create(OTHER, "other")
@@ -179,14 +179,20 @@ def main() -> None:
     assert set(UPGRADES) == {"hp", "power", "level"}
     ukb = upgrade_keyboard(a.id)
     assert len([btn for row in ukb.inline_keyboard for btn in row]) == len(UPGRADES) + 1
+    # Upgrades are paid in obsidian (never food).
+    players.add_resources(OWNER, obsidian=10000)
     storage.deposit(OWNER, meat=100, fish=100)
     a_before, b_before = dragons.get(a.id), dragons.get(b.id)
     st_before = storage.contents(OWNER)
+    obs_before = players.get(OWNER).obsidian
 
     up = upgrades.apply(OWNER, a.id, "hp")
     assert up.success and up.dragon.id == a.id
     assert up.dragon.max_hp == a_before.max_hp + UPGRADES["hp"]["amount"]
-    assert storage.contents(OWNER).meat == st_before.meat - UPGRADES["hp"]["cost"]["meat"]
+    assert players.get(OWNER).obsidian == obs_before - UPGRADES["hp"]["cost_obsidian"]
+    # Food is NOT consumed by upgrades any more.
+    assert storage.contents(OWNER).meat == st_before.meat
+    assert storage.contents(OWNER).fish == st_before.fish
     assert dragons.get(b.id).max_hp == b_before.max_hp  # other dragon untouched
 
     up = upgrades.apply(OWNER, a.id, "power")
@@ -200,10 +206,11 @@ def main() -> None:
     players.get_or_create(8004, "broke")
     broke_dragon = service.create_newborn(8004, "ice")
     poor = upgrades.apply(8004, broke_dragon.id, "hp")
-    assert poor.success is False and poor.reason == "not_enough" and poor.missing
+    assert poor.success is False and poor.reason == "not_enough"
+    assert poor.missing == UPGRADES["hp"]["cost_obsidian"]
     assert dragons.get(broke_dragon.id).max_hp == 100
     assert upgrades.apply(OWNER, foreign.id, "hp").reason == "no_dragon"
-    print("✓ upgrades need enough food and reject foreign dragons")
+    print("✓ upgrades need enough obsidian and reject foreign dragons")
 
     # 11. Rename only the selected dragon.
     a_name = dragons.get(a.id).name

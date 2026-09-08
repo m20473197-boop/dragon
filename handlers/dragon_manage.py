@@ -131,7 +131,7 @@ def upgrade_keyboard(dragon_id: int) -> InlineKeyboardMarkup:
     rows = [
         [
             InlineKeyboardButton(
-                f"{spec['emoji']} {spec['name']}",
+                f"{spec['emoji']} {spec['name']} — 🪨 {to_fa(spec['cost_obsidian'])}",
                 callback_data=f"{PREFIX}{ACTION_UPGRADE_DO}:{dragon_id}:{key}",
             )
         ]
@@ -191,21 +191,23 @@ def feed_menu_text(dragon, meat: int, fish: int, now: float | None = None) -> st
     )
 
 
-def upgrade_menu_text(dragon, meat: int, fish: int) -> str:
+def upgrade_menu_text(dragon, obsidian: int) -> str:
+    """The upgrade menu for one dragon; every price is in 🪨 obsidian."""
     lines = [
-        f"⬆️ ارتقای «{dragon.name}»",
+        "⬆️ ارتقای اژدها",
         "",
+        f"🐉 {dragon.name}",
         f"⭐ سطح: {to_fa(dragon.level)}   ❤️ سلامت: {to_fa(dragon.max_hp)}   "
         f"🔥 قدرت: {to_fa(dragon.power)}",
         "",
-        "هزینه‌ی ارتقاها از سردخانه پرداخت می‌شه:",
+        "یک ارتقا انتخاب کن:",
     ]
     for spec in UPGRADES.values():
-        cost = "، ".join(
-            f"{to_fa(amount)} {FOODS[res]['name']}" for res, amount in spec["cost"].items()
+        lines.append(
+            f"{spec['emoji']} {spec['name']} (+{to_fa(spec['amount'])}) — "
+            f"🪨 {to_fa(spec['cost_obsidian'])} ابسیدین"
         )
-        lines.append(f"{spec['emoji']} {spec['name']} (+{to_fa(spec['amount'])}) — {cost}")
-    lines += ["", f"❄️ موجودی: 🥩 {to_fa(meat)} | 🐟 {to_fa(fish)}"]
+    lines += ["", f"💰 موجودی تو: 🪨 {to_fa(obsidian)} ابسیدین"]
     return "\n".join(lines)
 
 
@@ -378,10 +380,10 @@ async def _feed_failure(query, context, dragon, user_id: int, reason: str) -> No
 
 
 async def _show_upgrades(query, context, dragon, user_id: int) -> None:
-    meat, fish = _storage(context, user_id)
+    balance = context.bot_data["upgrade_service"].balance(user_id)
     await _answer(query)
     await _edit(
-        query, upgrade_menu_text(dragon, meat, fish), upgrade_keyboard(dragon.id)
+        query, upgrade_menu_text(dragon, balance), upgrade_keyboard(dragon.id)
     )
 
 
@@ -393,11 +395,13 @@ async def _apply_upgrade(query, context, dragon, user_id: int, key: str) -> None
     result = context.bot_data["upgrade_service"].apply(user_id, dragon.id, key)
     if not result.success:
         if result.reason == "not_enough":
-            need = "، ".join(
-                f"{to_fa(amount)} {FOODS[res]['name']}"
-                for res, amount in result.missing.items()
+            await _answer(
+                query,
+                f"🪨 ابسیدین کافی نداری! {to_fa(result.missing)} تای دیگه لازمه.",
+                alert=True,
             )
-            await _answer(query, f"❄️ کافی نداری! هنوز {need} لازمه.", alert=True)
+        elif result.reason == "unknown":
+            await _answer(query, "این ارتقا در دسترس نیست.", alert=True)
         else:
             await _answer(query, "این اژدها مال تو نیست.", alert=True)
         return
@@ -411,15 +415,12 @@ async def _apply_upgrade(query, context, dragon, user_id: int, key: str) -> None
         }[stat]
         for stat, v in result.gains.items()
     )
-    cost = "، ".join(
-        f"{FOODS[res]['emoji']} {to_fa(amount)} {FOODS[res]['name']}"
-        for res, amount in result.spent.items()
-    )
     lines = [
         f"{spec['emoji']} «{result.dragon.name}» ارتقا پیدا کرد!",
         "",
         gains,
-        f"💸 هزینه: {cost}",
+        f"💸 هزینه: 🪨 {to_fa(result.spent)} ابسیدین",
+        f"💰 موجودی جدید: 🪨 {to_fa(result.balance)} ابسیدین",
         "",
         profile_text(result.dragon),
     ]

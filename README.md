@@ -336,18 +336,23 @@ spends from it with guarded atomic updates.
 
 ## ⬆️ Dragon upgrades
 
-`⬆️ ارتقا` on a dragon's page upgrades **only that dragon**, paid with food from
-cold storage (no coins, shops or currency). Defined in `config.UPGRADES`, so
-costs, bonuses and new upgrade types are configuration changes only:
+`⬆️ ارتقا` on a dragon's page upgrades **only that dragon** and is paid with
+**🪨 obsidian** — food is never spent on upgrades. Pressing it shows
+`⬆️ ارتقای اژدها` with one button per upgrade (price included) plus `🔙 برگشت`.
+Defined in `config.UPGRADES`, so prices, bonuses and new upgrade types are
+configuration changes only:
 
-| Upgrade | Effect | Default cost |
-|---------|--------|--------------|
-| ❤️ افزایش سلامت | +20 max HP (and a full heal) | 10 🥩 + 5 🐟 |
-| 🔥 افزایش قدرت | +5 power | 8 🥩 + 8 🐟 |
-| ⭐ افزایش سطح | +1 level (with the usual per-level HP/power gains) | 20 🥩 + 20 🐟 |
+| Upgrade | Effect | Default price |
+|---------|--------|---------------|
+| ❤️ افزایش سلامت | +20 max HP (and a full heal) | 🪨 500 |
+| 🔥 افزایش قدرت | +5 power | 🪨 700 |
+| ⭐ افزایش سطح | +1 level (with the usual per-level HP/power gains) | 🪨 1000 |
 
-Implemented in `game/upgrades.py`; affordability is checked before anything is
-spent, and ownership is enforced on every apply.
+Implemented in `game/upgrades.py`. Payment uses the guarded `spend_currency`
+UPDATE, so obsidian can never go negative and ten simultaneous taps apply
+exactly one upgrade; ownership is enforced on every apply, and unknown
+upgrades/foreign dragons are rejected without charging. Tests:
+`scripts/test_upgrades.py`.
 
 ## 🎯 Active dragon
 

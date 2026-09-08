@@ -165,10 +165,10 @@ def _setup_shared_objects(application: Application) -> None:
         storage=application.bot_data["storage_service"],
         egg_service=application.bot_data["egg_service"],
     )
+    # Upgrades are paid in obsidian, so no cold-storage dependency.
     application.bot_data["upgrade_service"] = UpgradeService(
         dragons=application.bot_data["dragon_repo"],
         players=application.bot_data["player_repo"],
-        storage=application.bot_data["storage_service"],
     )
     application.bot_data["admin_service"] = AdminService(
         players=application.bot_data["player_repo"],

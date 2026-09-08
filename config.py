@@ -122,16 +122,17 @@ FOOD_PRIORITY: tuple[str, ...] = ("meat", "fish")
 # Safety cap for «🍖 سیرش کن» so one press can never consume a whole storage.
 FULL_FEED_MAX_UNITS: int = 50
 
-# --- Dragon upgrades (paid with stored food; no coins/currency) -------------
-# Each upgrade: display text, what it improves, and its cost in meat/fish.
-# Costs and bonuses are configurable; add new entries to extend the system.
+# --- Dragon upgrades (paid with 🪨 obsidian) --------------------------------
+# Each upgrade: display text, what it improves, and its price in obsidian.
+# Prices and bonuses are configurable; add new entries to extend the system.
+# Food is never used for upgrading.
 UPGRADES: dict[str, dict] = {
     "hp": {
         "name": "افزایش سلامت",
         "emoji": "❤️",
         "stat": "max_hp",
         "amount": 20,
-        "cost": {"meat": 10, "fish": 5},
+        "cost_obsidian": 500,
         "description": "حداکثر سلامت اژدها را بیشتر می‌کند و کامل درمانش می‌کند.",
     },
     "power": {
@@ -139,7 +140,7 @@ UPGRADES: dict[str, dict] = {
         "emoji": "🔥",
         "stat": "power",
         "amount": 5,
-        "cost": {"meat": 8, "fish": 8},
+        "cost_obsidian": 700,
         "description": "قدرت پایه‌ی اژدها را بیشتر می‌کند.",
     },
     "level": {
@@ -147,7 +148,7 @@ UPGRADES: dict[str, dict] = {
         "emoji": "⭐",
         "stat": "level",
         "amount": 1,
-        "cost": {"meat": 20, "fish": 20},
+        "cost_obsidian": 1000,
         "description": "یک سطح به اژدها اضافه می‌کند (سلامت و قدرت هم رشد می‌کنند).",
     },
 }
