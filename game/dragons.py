@@ -74,6 +74,21 @@ def effective_power(base_power: int, hunger: int) -> int:
     return int(round(base_power * factor))
 
 
+def anchor_last_fed_time(hunger_after: int, now: float) -> float:
+    """The ``last_fed_time`` that makes hunger decay to ``hunger_after`` at ``now``.
+
+    Because :func:`current_hunger` derives hunger from the time elapsed since
+    the last feeding, a feed that only *partially* fills the dragon must move
+    that anchor into the past by the time it takes hunger to decay from full
+    (100) down to the new level. This keeps the single time-based source of
+    truth consistent with the hunger value reported right after feeding.
+    """
+    hunger_after = max(0, min(DRAGON_DEFAULT_HUNGER, hunger_after))
+    missing = DRAGON_DEFAULT_HUNGER - hunger_after
+    hours_decayed = missing / HUNGER_DECAY_PER_HOUR if HUNGER_DECAY_PER_HOUR else 0
+    return now - hours_decayed * 3600.0
+
+
 @dataclass
 class LevelUpEvent:
     """A single level gained by a dragon (used to build announcements)."""

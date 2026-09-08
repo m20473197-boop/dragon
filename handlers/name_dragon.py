@@ -107,6 +107,15 @@ async def capture_dragon_name(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 # --- small state helpers ----------------------------------------------------
+def cancel_naming_prompt(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Public hook: discard any open naming prompt for this user.
+
+    Called when the user sends a real game command so the command's reply is
+    not later mistaken for a dragon name.
+    """
+    _cancel_prompt(context)
+
+
 def _begin_prompt(
     context: ContextTypes.DEFAULT_TYPE, user_id: int, dragon_id: int, chat_id: int
 ) -> None:
@@ -125,6 +134,8 @@ def _begin_prompt(
 def _cancel_prompt(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Clear the naming prompt state and any pending timeout job."""
     context.user_data.pop(NAME_STATE_KEY, None)
+    if context.job_queue is None:
+        return
     for job in list(context.job_queue.get_jobs_by_name(NAME_PROMPT_TASK)):
         job.schedule_removal()
 

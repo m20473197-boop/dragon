@@ -79,7 +79,13 @@ def main() -> None:
     assert after.xp == FOODS["meat"]["xp"] == 20
     assert r.hp_healed == 30
     assert r.hunger_after == 0 + FOODS["meat"]["hunger"] == 50
-    print("✓ meat: -3 meat, +HP, +XP, +hunger")
+    # The derived hunger (used by «اژدهای من») must match the value the feed
+    # reported — this locks the last_fed_time anchoring fix.
+    assert current_hunger(after, now) == r.hunger_after == 50, (
+        current_hunger(after, now),
+        r.hunger_after,
+    )
+    print("✓ meat: -3 meat, +HP, +XP, +hunger; derived hunger consistent")
 
     # 5. Not-enough-food is rejected and changes nothing.
     r2 = fs.feed(1, "meat")

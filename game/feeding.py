@@ -18,10 +18,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 from config import DRAGON_DEFAULT_HUNGER, FOODS
-from database.connection import get_db
-from game.dragons import xp_required_for_level
-from game.storage import ColdStorageService
 from config import LEVEL_UP_MAX_HP_BONUS, LEVEL_UP_POWER_BONUS
+from database.connection import get_db
+from game.dragons import anchor_last_fed_time, current_hunger, xp_required_for_level
+from game.storage import ColdStorageService
 from models.dragon import Dragon, DragonRepository
 from models.player import PlayerRepository
 
@@ -81,10 +81,11 @@ class FeedingService:
                 return FeedResult(success=False, reason="not_enough")
 
             # Compute effective (decayed) hunger before feeding.
-            from game.dragons import current_hunger
-
             hunger_before = current_hunger(dragon, now)
             hunger_after = min(DRAGON_DEFAULT_HUNGER, hunger_before + food["hunger"])
+            # Anchor the feeding timestamp so the time-based hunger decay
+            # matches hunger_after (current_hunger reads from last_fed_time).
+            fed_time = anchor_last_fed_time(hunger_after, now)
 
             # Apply XP + level-ups (pure math; same rules as DragonService).
             xp = dragon.xp + food["xp"]
@@ -117,7 +118,7 @@ class FeedingService:
                 max_hp=max_hp,
                 power=power,
                 hunger=hunger_after,
-                last_fed_time=now,
+                last_fed_time=fed_time,
                 conn=conn,
             )
             updated = self.dragons.get(dragon.id, conn=conn)

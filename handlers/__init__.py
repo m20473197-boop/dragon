@@ -45,7 +45,11 @@ from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.jobs import hatch_sweep, spawn_tick
 from handlers.mydragons import my_dragons_command
-from handlers.name_dragon import capture_dragon_name, name_dragon_command
+from handlers.name_dragon import (
+    cancel_naming_prompt,
+    capture_dragon_name,
+    name_dragon_command,
+)
 from handlers.spawn import CLAIM_PREFIX, claim_callback
 from handlers.storage import storage_command
 from handlers.tracking import track_from_update
@@ -86,6 +90,9 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # open naming prompt (handled inside the capture). Otherwise, if the user is
     # mid "نام اژدها" flow, the message is treated as the dragon name.
     if text in COMMAND_MAP:
+        # A real game command runs normally and abandons any open naming
+        # prompt, so the command's flow is not treated as a dragon name.
+        cancel_naming_prompt(context)
         handler = COMMAND_MAP[text]
         await handler(update, context)
         return
