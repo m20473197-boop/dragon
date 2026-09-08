@@ -553,3 +553,28 @@ finished_time, reward`). نبرد در دیتابیس ذخیره می‌شود،
 - نبردهای رهاشده بعد از `BATTLE_STALE_SECONDS` آزاد می‌شوند تا کاربر قفل نشود.
 
 تست‌ها: `scripts/test_combat.py` (۸۰ بررسی).
+
+## 🔁 Duplicate instance (Conflict) handling
+
+Telegram allows only **one** `getUpdates` consumer per bot token. If a second
+copy of the bot is started, every poll raises
+`telegram.error.Conflict: terminated by other getUpdates request`.
+
+The bot now handles this gracefully:
+
+- The application error handler recognises `Conflict` and logs one clear
+  explanation (what happened, that only one instance may run, and how to fix
+  it — stop the other process or `deleteWebhook`), with no traceback.
+- `handlers.errors.ConflictLogFilter` (installed from `bot.py` at startup)
+  also collapses the tracebacks python-telegram-bot's own polling loop prints,
+  since those never reach the error handler.
+- Repeats are throttled: after the first message, a reminder is logged at most
+  once every `CONFLICT_LOG_INTERVAL_SECONDS` (300s) and reports how many
+  occurrences were suppressed. Suppressed ones stay visible at DEBUG level.
+- The bot is **not** stopped — polling keeps retrying and recovers by itself
+  once the duplicate instance is shut down.
+- Normal startup, architecture and all other error handling are unchanged;
+  timeouts still log as warnings and genuine bugs still log a full traceback
+  and notify the user.
+
+Tests: `scripts/test_conflict.py` (20 checks).

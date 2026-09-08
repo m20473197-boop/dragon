@@ -17,6 +17,7 @@ from config import require_token
 from database.init_db import init_db
 from database.migrate import run_migrations
 from handlers import register_all
+from handlers.errors import install_conflict_filter
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
@@ -26,6 +27,10 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # APScheduler can be noisy; keep it at WARNING.
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 logger = logging.getLogger("dragon")
+
+# Collapse the repeated "terminated by other getUpdates request" tracebacks a
+# duplicate bot instance would otherwise print on every single poll.
+install_conflict_filter()
 
 
 def main() -> None:
