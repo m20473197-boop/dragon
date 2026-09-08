@@ -56,8 +56,18 @@ class FeedingService:
         """How much of the given food is in the owner's cold storage."""
         return self.storage.count(owner_id, FOODS[food_key]["resource"])
 
-    def feed(self, owner_id: int, food_key: str, now: Optional[float] = None) -> FeedResult:
-        """Feed the owner's newest dragon with one unit of ``food_key``.
+    def feed(
+        self,
+        owner_id: int,
+        food_key: str,
+        now: Optional[float] = None,
+        dragon_id: Optional[int] = None,
+    ) -> FeedResult:
+        """Feed one of the owner's dragons with one unit of ``food_key``.
+
+        ``dragon_id`` selects a specific dragon (it must belong to
+        ``owner_id``); when omitted the owner's newest dragon is fed, which is
+        the original behaviour of the «غذا بده» command.
 
         Returns a FeedResult. On insufficient food / no dragon, nothing is
         changed.
@@ -68,7 +78,12 @@ class FeedingService:
         food = FOODS[food_key]
 
         with get_db() as conn:
-            dragon = self.dragons.newest_for_owner(owner_id, conn=conn)
+            if dragon_id is None:
+                dragon = self.dragons.newest_for_owner(owner_id, conn=conn)
+            else:
+                # Ownership is enforced here so a forged button can never feed
+                # somebody else's dragon.
+                dragon = self.dragons.get_owned(dragon_id, owner_id, conn=conn)
             if dragon is None:
                 return FeedResult(success=False, reason="no_dragon")
 

@@ -41,6 +41,7 @@ Send these as normal messages in the group (no `/`):
 | `ماهیگیری`  | Fishing          | Catch 10–20 🐟 fish. 10% chance to **find an egg** (auto-owned). 10 min cooldown. |
 | `تخم ها`    | My eggs / inventory | Lists your incubating eggs: type + time until hatching, plus dragons/meat/fish. |
 | `اژدهای من` | My dragons       | Shows each dragon's نام (name), نوع (type), ⭐ سطح (level), ✨ تجربه (current/required XP), ❤️ سلامت (HP), 🔥 قدرت (power). |
+| `اژدها های من` | Dragon management | Selection-first panel: one inline button per dragon, then that dragon's profile with 🥩 غذا دادن / ⬆️ ارتقا / ✏️ تغییر نام / 🔙 برگشت. |
 | `نام اژدها` | Name dragon      | The bot asks for a name; your next message names your most recent dragon. Sending a game command cancels it. |
 | `غذا بده`   | Feed dragon      | Shows your stored 🥩/🐟 with buttons to feed your newest dragon (consumes food, heals, grants XP, restores hunger). |
 | `سردخانه`   | Cold storage     | Shows your ❄️ سردخانه (cold storage): stored 🥩 گوشت and 🐟 ماهی. |
@@ -282,3 +283,34 @@ Runs against a throwaway DB. The smoke test covers player creation,
 hunting/fishing, cooldowns, chat tracking, spawning, claiming, found eggs,
 hatching and expiry; the atomicity test runs **concurrent** hunts and claims in
 threads and verifies exactly one reward / one winner, plus idempotent hatching.
+
+## 🐉 Dragon Management System
+
+A user can own any number of dragons; each row in `dragons` keeps its own
+`dragon_id`, `owner_id`, `name`, `type`, `level`, `xp`, `hp`, `max_hp`,
+`power` and `hunger` (the existing table — nothing was replaced).
+
+`اژدها های من` does **not** dump every dragon into one message. It replies:
+
+> 🐉 اژدهای خود را انتخاب کنید:
+
+with one inline button per dragon (`🔥 آذر`, `❄️ یخ پنجه`, `⚡ رعد`). Choosing
+one **edits** the same message into that dragon's profile page (name, type,
+level, XP, HP, power, hunger) with the management buttons below it:
+
+| Button | Behaviour |
+|--------|-----------|
+| 🥩 غذا دادن | Meat/fish choices that feed **this** dragon (existing feeding rules and cold-storage costs). |
+| ⬆️ ارتقا | Shows this dragon's XP progress toward its next level and how to earn XP. |
+| ✏️ تغییر نام | Opens the existing naming prompt bound to **this** dragon id. |
+| 🔙 برگشت | Edits the message back to the dragon selection list. |
+
+**Isolation:** the selected `dragon_id` travels in the callback data and every
+action re-loads it with `get_owned(dragon_id, owner_id)`, so an action can only
+ever touch a dragon the presser owns — no accidental edits to another dragon,
+and forged callbacks for someone else's dragon are rejected. Management buttons
+only exist on a profile page, never on the selection list.
+
+Implemented in `handlers/dragon_manage.py`; `FeedingService.feed()` gained an
+optional `dragon_id` argument (default behaviour of `غذا بده` is unchanged).
+Tests: `scripts/test_dragon_manage.py`.

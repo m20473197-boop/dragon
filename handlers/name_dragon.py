@@ -107,6 +107,17 @@ async def capture_dragon_name(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 # --- small state helpers ----------------------------------------------------
+def start_naming_for_dragon(
+    context: ContextTypes.DEFAULT_TYPE, user_id: int, dragon_id: int, chat_id: int
+) -> None:
+    """Public hook: open a naming prompt for one specific dragon.
+
+    Used by the dragon management panel («✏️ تغییر نام») so the captured name
+    is applied to the dragon the user selected, instead of the newest one.
+    """
+    _begin_prompt(context, user_id=user_id, dragon_id=dragon_id, chat_id=chat_id)
+
+
 def cancel_naming_prompt(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Public hook: discard any open naming prompt for this user.
 

@@ -30,6 +30,7 @@ from config import (
     COMMAND_FISHING,
     COMMAND_HUNT,
     COMMAND_MY_DRAGONS,
+    COMMAND_MY_DRAGONS_MENU,
     COMMAND_NAME_DRAGON,
     COMMAND_STORAGE,
     HATCH_SWEEP_INTERVAL_SECONDS,
@@ -48,6 +49,11 @@ from handlers.hunt import hunt_command
 from handlers.jobs import hatch_sweep, spawn_tick
 from admin import keyboards as admin_kb
 from admin.handlers import admin_capture, admin_callback, admin_panel_command, admin_test_egg_command
+from handlers.dragon_manage import (
+    PREFIX as DRAGON_MANAGE_PREFIX,
+    dragon_manage_callback,
+    my_dragons_menu_command,
+)
 from handlers.mydragons import my_dragons_command
 from handlers.name_dragon import (
     cancel_naming_prompt,
@@ -72,6 +78,9 @@ COMMAND_MAP = {
     COMMAND_FISHING: fishing_command,
     COMMAND_EGGS: eggs_command,
     COMMAND_MY_DRAGONS: my_dragons_command,
+    COMMAND_MY_DRAGONS_MENU: my_dragons_menu_command,
+    # Same command written without the space (also matches the نیم‌فاصله form).
+    "اژدهاهای من": my_dragons_menu_command,
     COMMAND_NAME_DRAGON: name_dragon_command,
     COMMAND_FEED: feed_command,
     COMMAND_STORAGE: storage_command,
@@ -179,6 +188,11 @@ def register_all(application: Application) -> None:
     # Inline-button feeding: "feed:<food>"
     application.add_handler(
         CallbackQueryHandler(feed_callback, pattern=rf"^{FEED_PREFIX}(meat|fish)$")
+    )
+
+    # Dragon management panel: "dg:<action>[:<dragon_id>...]"
+    application.add_handler(
+        CallbackQueryHandler(dragon_manage_callback, pattern=rf"^{DRAGON_MANAGE_PREFIX}")
     )
 
     # Admin panel callbacks: "admin:..." (handler re-checks permissions).
