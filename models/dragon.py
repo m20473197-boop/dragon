@@ -35,6 +35,7 @@ class Dragon:
     power: int = DRAGON_DEFAULT_POWER
     hunger: int = DRAGON_DEFAULT_HUNGER
     last_fed_time: Optional[float] = None
+    is_test: int = 0
     from_egg_id: Optional[int] = None
     born_at: Optional[str] = None
 
@@ -52,6 +53,7 @@ class Dragon:
             power=row["power"],
             hunger=row["hunger"],
             last_fed_time=row["last_fed_time"],
+            is_test=row["is_test"] if "is_test" in row.keys() else 0,
             from_egg_id=row["from_egg_id"],
             born_at=row["born_at"],
         )
@@ -75,6 +77,7 @@ class DragonRepository:
         power: int = DRAGON_DEFAULT_POWER,
         hunger: int = DRAGON_DEFAULT_HUNGER,
         last_fed_time: Optional[float] = None,
+        is_test: int = 0,
         conn=None,
     ) -> Dragon:
         """Insert a new dragon with explicit (default) stats.
@@ -87,11 +90,11 @@ class DragonRepository:
                 """
                 INSERT INTO dragons
                     (owner_id, name, dragon_type, level, xp, hp, max_hp, power,
-                     hunger, last_fed_time, from_egg_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     hunger, last_fed_time, is_test, from_egg_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (owner_id, name, dragon_type, level, xp, hp, max_hp, power,
-                 hunger, last_fed_time, from_egg_id),
+                 hunger, last_fed_time, is_test, from_egg_id),
             )
             dragon_id = cur.lastrowid
         return Dragon(
@@ -106,8 +109,33 @@ class DragonRepository:
             power=power,
             hunger=hunger,
             last_fed_time=last_fed_time,
+            is_test=is_test,
             from_egg_id=from_egg_id,
         )
+
+    def count_all(self, conn=None) -> int:
+        with db_scope(conn) as c:
+            row = c.execute("SELECT COUNT(*) AS n FROM dragons").fetchone()
+        return row["n"]
+
+    def delete_test(self, conn=None) -> int:
+        """Remove admin-created test dragons; returns the count deleted."""
+        with db_scope(conn) as c:
+            ids = [
+                r["owner_id"]
+                for r in c.execute(
+                    "SELECT owner_id FROM dragons WHERE is_test = 1"
+                ).fetchall()
+            ]
+            cur = c.execute("DELETE FROM dragons WHERE is_test = 1")
+            deleted = cur.rowcount
+            # Adjust the per-owner dragon counters for the removed test dragons.
+            if ids:
+                c.executemany(
+                    "UPDATE players SET dragons = MAX(0, dragons - 1) WHERE user_id = ?",
+                    [(uid,) for uid in ids],
+                )
+        return deleted
 
     def get(self, dragon_id: int, conn=None) -> Optional[Dragon]:
         with db_scope(conn) as c:

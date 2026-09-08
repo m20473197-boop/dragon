@@ -40,6 +40,7 @@ class Egg:
     claim_time: Optional[float] = None
     hatch_time: Optional[float] = None
     message_id: Optional[int] = None
+    is_test: int = 0
 
     @classmethod
     def from_row(cls, row) -> "Egg":
@@ -53,6 +54,7 @@ class Egg:
             claim_time=row["claim_time"],
             hatch_time=row["hatch_time"],
             message_id=row["message_id"],
+            is_test=row["is_test"] if "is_test" in row.keys() else 0,
         )
 
 
@@ -67,6 +69,7 @@ class EggRepository:
         message_id: Optional[int] = None,
         status: str = STATUS_AVAILABLE,
         claim_time: Optional[float] = None,
+        is_test: int = 0,
         conn=None,
     ) -> Egg:
         with db_scope(conn) as c:
@@ -74,11 +77,11 @@ class EggRepository:
                 """
                 INSERT INTO eggs
                     (egg_type, chat_id, message_id, owner_id, status,
-                     spawn_time, claim_time, hatch_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                     is_test, spawn_time, claim_time, hatch_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (egg_type, chat_id, message_id, owner_id, status,
-                 spawn_time, claim_time, hatch_time),
+                 is_test, spawn_time, claim_time, hatch_time),
             )
             egg_id = cur.lastrowid
         return Egg(
@@ -91,6 +94,7 @@ class EggRepository:
             claim_time=claim_time,
             hatch_time=hatch_time,
             message_id=message_id,
+            is_test=is_test,
         )
 
     def spawn_if_chat_free(
@@ -98,30 +102,61 @@ class EggRepository:
         egg_type: str,
         chat_id: int,
         spawn_time: float,
+        is_test: int = 0,
+        force: bool = False,
         conn=None,
     ) -> Optional[Egg]:
         """Atomically spawn an available egg only if the group has none.
 
         Returns the new egg, or ``None`` if an unclaimed egg is already
         waiting in that group (checked and inserted in one statement).
+        ``force=True`` (admin test eggs) inserts regardless.
         """
         with db_scope(conn) as c:
-            cur = c.execute(
-                """
-                INSERT INTO eggs (egg_type, chat_id, status, spawn_time)
-                SELECT ?, ?, ?, ?
-                 WHERE NOT EXISTS (
-                     SELECT 1 FROM eggs
-                      WHERE chat_id = ? AND status = ?
-                 )
-                """,
-                (egg_type, chat_id, STATUS_AVAILABLE, spawn_time,
-                 chat_id, STATUS_AVAILABLE),
-            )
+            if force:
+                cur = c.execute(
+                    """
+                    INSERT INTO eggs
+                        (egg_type, chat_id, status, is_test, spawn_time)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (egg_type, chat_id, STATUS_AVAILABLE, is_test, spawn_time),
+                )
+            else:
+                cur = c.execute(
+                    """
+                    INSERT INTO eggs (egg_type, chat_id, status, is_test, spawn_time)
+                    SELECT ?, ?, ?, ?, ?
+                     WHERE NOT EXISTS (
+                         SELECT 1 FROM eggs
+                          WHERE chat_id = ? AND status = ?
+                     )
+                    """,
+                    (egg_type, chat_id, STATUS_AVAILABLE, is_test, spawn_time,
+                     chat_id, STATUS_AVAILABLE),
+                )
             egg_id = cur.lastrowid if cur.rowcount == 1 else None
         if egg_id is None:
             return None
         return self.get(egg_id, conn=conn)
+
+    def set_is_test(self, egg_id: int, is_test: int, conn=None) -> None:
+        with db_scope(conn) as c:
+            c.execute("UPDATE eggs SET is_test = ? WHERE id = ?", (is_test, egg_id))
+
+    def count_all(self, conn=None) -> int:
+        with db_scope(conn) as c:
+            row = c.execute("SELECT COUNT(*) AS n FROM eggs").fetchone()
+        return row["n"]
+
+    def delete_test(self, conn=None) -> int:
+        """Delete test eggs that were never claimed (or are test-marked).
+
+        Returns the number of rows removed.
+        """
+        with db_scope(conn) as c:
+            cur = c.execute("DELETE FROM eggs WHERE is_test = 1")
+            return cur.rowcount
 
     def get(self, egg_id: int, conn=None) -> Optional[Egg]:
         with db_scope(conn) as c:

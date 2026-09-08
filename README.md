@@ -65,6 +65,33 @@ is the single place that reads and spends them, shared by the feed system.
 >
 > 🐟 ماهی: ۱۳
 
+## 🛠 Admin panel (development / testing / monitoring)
+
+The admin panel is a separate, gated module (`admin/`) — normal users cannot
+reach it. Access is based on a Telegram user-ID allow-list, and testing tools
+additionally require debug mode.
+
+- **Admins:** set `DRAGON_ADMIN_IDS` (comma-separated IDs) in `.env`. Only those
+  IDs can use `پنل مدیریت`. Every admin callback re-checks permissions server-side.
+- **Debug mode:** `DRAGON_DEBUG=true` enables the test tools; `false` hides and
+  disables them (the monitoring buttons remain available).
+
+Admin command (no slash): **`پنل مدیریت`** opens the panel:
+
+| Button | Action |
+|--------|--------|
+| 🥚 ساخت تخم تست | Spawns a real, claimable test egg in the group (marked `is_test`). |
+| 🐉 ساخت اژدهای تست | Creates a «تستی» level-1 dragon (HP 100 / power 20 / XP 0) for the replied-to user (or the admin). |
+| 🍖 اضافه کردن غذا | Adds meat/fish to a user's cold storage. Multiline shortcut: `اضافه غذا` / `گوشت\|ماهی` / `100` (reply to a user to target them). |
+| ⏩ تغییر زمان تخم | Testing-only hatch override: 10s / 1min / 5min / reset (production values never change). |
+| 📊 آمار بازی | Total users, eggs, dragons, groups, hunts, fishing trips. |
+| 👤 اطلاعات کاربر | ID, username, eggs, dragons, meat, fish and per-dragon stats (reply or send numeric ID). |
+| 🗑 پاک کردن اطلاعات تست | Asks for confirmation, then deletes **only** `is_test` eggs/dragons — real data is never touched. |
+
+Test rows are flagged with an additive `is_test` column (migrated in place);
+reset deletes only those rows and corrects counters. Action statistics use
+`players.hunt_count` / `fishing_count`, bumped atomically with each gather.
+
 ### Hunger & feeding
 
 - **Hunger:** every dragon has a `hunger` percentage (stored; **100 = full** at

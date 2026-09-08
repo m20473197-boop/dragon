@@ -23,6 +23,8 @@ from telegram.ext import (
 )
 
 from config import (
+    COMMAND_ADMIN_PANEL,
+    COMMAND_ADMIN_TEST_EGG,
     COMMAND_EGGS,
     COMMAND_FEED,
     COMMAND_FISHING,
@@ -44,6 +46,8 @@ from handlers.feed import FEED_PREFIX, feed_callback, feed_command
 from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.jobs import hatch_sweep, spawn_tick
+from admin import keyboards as admin_kb
+from admin.handlers import admin_capture, admin_callback, admin_panel_command, admin_test_egg_command
 from handlers.mydragons import my_dragons_command
 from handlers.name_dragon import (
     cancel_naming_prompt,
@@ -53,6 +57,7 @@ from handlers.name_dragon import (
 from handlers.spawn import CLAIM_PREFIX, claim_callback
 from handlers.storage import storage_command
 from handlers.tracking import track_from_update
+from admin.service import AdminService
 from models.chat import ChatRepository
 from models.dragon import DragonRepository
 from models.egg import EggRepository
@@ -70,6 +75,8 @@ COMMAND_MAP = {
     COMMAND_NAME_DRAGON: name_dragon_command,
     COMMAND_FEED: feed_command,
     COMMAND_STORAGE: storage_command,
+    COMMAND_ADMIN_PANEL: admin_panel_command,
+    COMMAND_ADMIN_TEST_EGG: admin_test_egg_command,
 }
 
 
@@ -85,6 +92,11 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if message is None or not message.text:
         return
     text = normalize_command(message.text)
+
+    # Admin multiline shortcuts (e.g. "اضافه غذا / گوشت / 100") and pending
+    # admin flows take precedence for admins.
+    if await admin_capture(update, context):
+        return
 
     # If this message is a known game command, it runs normally and cancels any
     # open naming prompt (handled inside the capture). Otherwise, if the user is
@@ -126,6 +138,13 @@ def _setup_shared_objects(application: Application) -> None:
         players=application.bot_data["player_repo"],
         dragon_service=application.bot_data["dragon_service"],
     )
+    application.bot_data["admin_service"] = AdminService(
+        players=application.bot_data["player_repo"],
+        chats=application.bot_data["chat_repo"],
+        eggs=application.bot_data["egg_repo"],
+        dragons=application.bot_data["dragon_repo"],
+        egg_service=application.bot_data["egg_service"],
+    )
 
 
 def _setup_jobs(application: Application) -> None:
@@ -160,6 +179,11 @@ def register_all(application: Application) -> None:
     # Inline-button feeding: "feed:<food>"
     application.add_handler(
         CallbackQueryHandler(feed_callback, pattern=rf"^{FEED_PREFIX}(meat|fish)$")
+    )
+
+    # Admin panel callbacks: "admin:..." (handler re-checks permissions).
+    application.add_handler(
+        CallbackQueryHandler(admin_callback, pattern=rf"^{admin_kb.PREFIX}")
     )
 
     # Persian word commands (no slash). ~filters.COMMAND ignores "/..." messages.

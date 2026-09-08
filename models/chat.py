@@ -39,6 +39,13 @@ class ChatRepository:
                 (chat_id, title, now),
             )
 
+    def count_all(self, conn=None) -> int:
+        from database.connection import db_scope
+
+        with db_scope(conn) as c:
+            row = c.execute("SELECT COUNT(*) AS n FROM chats").fetchone()
+        return row["n"]
+
     def active_chats(self, within_seconds: int, now: Optional[float] = None) -> list[Chat]:
         """Groups seen in the last ``within_seconds`` seconds."""
         now = now or time.time()

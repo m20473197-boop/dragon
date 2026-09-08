@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 # Cooldown column -> the time the player must wait between uses.
 _COOLDOWN_COLUMNS = {"last_hunt_time", "last_fishing_time"}
+# Statistics counter columns that may be bumped atomically.
+_COUNT_COLUMNS = {"hunt_count", "fishing_count"}
 
 
 @dataclass
@@ -33,9 +35,12 @@ class Player:
     dragons: int = 0
     last_hunt_time: Optional[float] = None
     last_fishing_time: Optional[float] = None
+    hunt_count: int = 0
+    fishing_count: int = 0
 
     @classmethod
     def from_row(cls, row) -> "Player":
+        keys = row.keys()
         return cls(
             user_id=row["user_id"],
             username=row["username"],
@@ -45,6 +50,8 @@ class Player:
             dragons=row["dragons"],
             last_hunt_time=row["last_hunt_time"],
             last_fishing_time=row["last_fishing_time"],
+            hunt_count=row["hunt_count"] if "hunt_count" in keys else 0,
+            fishing_count=row["fishing_count"] if "fishing_count" in keys else 0,
         )
 
 
@@ -177,6 +184,7 @@ class PlayerRepository:
         cooldown_seconds: int,
         meat: int = 0,
         fish: int = 0,
+        count_column: Optional[str] = None,
         now: Optional[float] = None,
         conn=None,
     ) -> Optional[float]:
@@ -184,11 +192,15 @@ class PlayerRepository:
 
         Returns the action timestamp on success, or ``None`` if still cooling
         down (in which case nothing is granted). Prevents duplicate rewards
-        from rapid/double messages.
+        from rapid/double messages. ``count_column`` (hunt_count/fishing_count)
+        is bumped on success for game statistics.
         """
         if column not in _COOLDOWN_COLUMNS:
             raise ValueError(f"Unknown cooldown column: {column!r}")
+        if count_column is not None and count_column not in _COUNT_COLUMNS:
+            raise ValueError(f"Unknown count column: {count_column!r}")
         now = now if now is not None else time.time()
+        count_sql = f", {count_column} = {count_column} + 1" if count_column else ""
         with db_scope(conn) as c:
             cur = c.execute(
                 f"""
@@ -196,6 +208,7 @@ class PlayerRepository:
                    SET {column} = ?,
                        meat = meat + ?,
                        fish = fish + ?
+                       {count_sql}
                  WHERE user_id = ?
                    AND ({column} IS NULL OR ? - {column} >= ?)
                 """,
@@ -204,6 +217,19 @@ class PlayerRepository:
             if cur.rowcount == 1:
                 return now
         return None
+
+    def count_all(self, conn=None) -> int:
+        with db_scope(conn) as c:
+            row = c.execute("SELECT COUNT(*) AS n FROM players").fetchone()
+        return row["n"]
+
+    def total_counts(self, conn=None) -> tuple[int, int]:
+        """Total (hunts, fishing trips) across all players."""
+        with db_scope(conn) as c:
+            row = c.execute(
+                "SELECT COALESCE(SUM(hunt_count),0) AS h, COALESCE(SUM(fishing_count),0) AS f FROM players"
+            ).fetchone()
+        return int(row["h"]), int(row["f"])
 
     def get_cooldown_remaining(
         self, user_id: int, column: str, cooldown_seconds: int, now: Optional[float] = None

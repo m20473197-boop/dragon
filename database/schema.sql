@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS players (
     dragons           INTEGER NOT NULL DEFAULT 0,    -- total dragons owned
     last_hunt_time    REAL,                          -- unix timestamp of last hunt
     last_fishing_time REAL,                          -- unix timestamp of last fishing
+    hunt_count        INTEGER NOT NULL DEFAULT 0,    -- total successful hunts
+    fishing_count     INTEGER NOT NULL DEFAULT 0,    -- total successful fishing trips
     created_at        TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS eggs (
     message_id  INTEGER,                            -- spawn message (for button updates)
     owner_id    INTEGER,                            -- Telegram user ID of claimer (NULL until claimed)
     status      TEXT NOT NULL DEFAULT 'available',  -- available | incubating | hatched | expired
+    is_test     INTEGER NOT NULL DEFAULT 0,         -- 1 if created via the admin test tools
     spawn_time  REAL NOT NULL,
     claim_time  REAL,
     hatch_time  REAL,                               -- set when claimed (spawn_time for found eggs)
@@ -56,6 +59,7 @@ CREATE TABLE IF NOT EXISTS dragons (
     power        INTEGER NOT NULL DEFAULT 20,        -- base attack power
     hunger       INTEGER NOT NULL DEFAULT 100,       -- fullness 0..100 (100 = full)
     last_fed_time REAL,                              -- unix timestamp of last feeding
+    is_test      INTEGER NOT NULL DEFAULT 0,         -- 1 if created via the admin test tools
     from_egg_id  INTEGER,
     born_at      TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (owner_id)   REFERENCES players (user_id),

@@ -21,6 +21,7 @@ from config import (
     EGG_TYPES,
 )
 from database.connection import get_db
+from game import hatch_override
 from game.dragons import DragonService
 from models.dragon import Dragon, DragonRepository
 from models.egg import (
@@ -69,7 +70,8 @@ class EggService:
 
     @staticmethod
     def hatch_seconds(egg_type: str) -> int:
-        return EGG_TYPES[egg_type]["hatch_seconds"]
+        """Production hatch time, unless the admin debug override is active."""
+        return hatch_override.get_hatch_seconds(EGG_TYPES[egg_type]["hatch_seconds"])
 
     # --- spawning / claiming ----------------------------------------------
     def spawn_wild_egg(self, chat_id: int, now: Optional[float] = None) -> Optional[Egg]:

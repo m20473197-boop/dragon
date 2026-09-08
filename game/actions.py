@@ -59,6 +59,7 @@ def hunt(repo: PlayerRepository, player: Player) -> HuntResult:
         column="last_hunt_time",
         cooldown_seconds=HUNT_COOLDOWN_SECONDS,
         meat=meat_gained,
+        count_column="hunt_count",
         now=now,
     )
     if claimed_at is None:
@@ -107,6 +108,7 @@ def fish(repo: PlayerRepository, player: Player) -> FishResult:
         column="last_fishing_time",
         cooldown_seconds=FISHING_COOLDOWN_SECONDS,
         fish=fish_gained,
+        count_column="fishing_count",
         now=now,
     )
     if claimed_at is None:

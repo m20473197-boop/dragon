@@ -33,6 +33,27 @@ COMMAND_MY_DRAGONS = "اژدهای من"
 COMMAND_NAME_DRAGON = "نام اژدها"
 COMMAND_FEED = "غذا بده"
 COMMAND_STORAGE = "سردخانه"
+COMMAND_ADMIN_PANEL = "پنل مدیریت"
+COMMAND_ADMIN_TEST_EGG = "ساخت تخم تست"
+COMMAND_ADMIN_ADD_FOOD = "اضافه غذا"
+
+# --- Admin panel ------------------------------------------------------------
+# Telegram user IDs allowed to use admin features. Set via the DRAGON_ADMIN_IDS
+# environment variable as a comma-separated list, e.g. "123456789,987654321".
+ADMIN_IDS: list[int] = [
+    int(x)
+    for x in os.environ.get("DRAGON_ADMIN_IDS", "").replace(" ", "").split(",")
+    if x.lstrip("-").isdigit()
+]
+
+# Debug/testing switch. When False, testing tools are hidden and disabled
+# (monitoring tools remain available to admins). Override with DRAGON_DEBUG.
+DEBUG_MODE: bool = (
+    os.environ.get("DRAGON_DEBUG", "true").strip().lower() in {"1", "true", "yes", "on"}
+)
+
+# Name given to admin-created test dragons (also used to identify them).
+TEST_DRAGON_NAME = "تستی"
 
 # Default name assigned to a freshly hatched dragon until the owner renames it.
 DEFAULT_DRAGON_NAME = "بدون نام"

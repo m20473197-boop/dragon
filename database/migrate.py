@@ -24,6 +24,13 @@ logger = logging.getLogger(__name__)
 
 # table -> {column: column definition for ALTER TABLE ADD COLUMN}
 _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
+    "players": {
+        "hunt_count": "INTEGER NOT NULL DEFAULT 0",
+        "fishing_count": "INTEGER NOT NULL DEFAULT 0",
+    },
+    "eggs": {
+        "is_test": "INTEGER NOT NULL DEFAULT 0",
+    },
     "dragons": {
         "name": f"TEXT NOT NULL DEFAULT '{DEFAULT_DRAGON_NAME}'",
         "level": f"INTEGER NOT NULL DEFAULT {DRAGON_DEFAULT_LEVEL}",
