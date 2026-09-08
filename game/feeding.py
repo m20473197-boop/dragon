@@ -5,7 +5,7 @@ and restores hunger. The whole operation runs in one transaction and the
 resource cost is checked with an atomic, guarded UPDATE, so rapid/double taps
 can never spend more food than the player actually has.
 
-Feeding is reached only from the dragon profile page («اژدها های من» ->
+Feeding is reached only from the dragon profile page («اژدها» ->
 select a dragon -> «🥩 غذا دادن»); there is no feeding command. Food is spent
 one unit at a time (see config.FOOD_UNITS), either a single unit or exactly as
 many as the dragon needs to become full.

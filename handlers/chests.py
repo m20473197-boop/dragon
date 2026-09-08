@@ -1,8 +1,11 @@
 """Random chest messages, the open button and its callback.
 
 A chest is announced in the group with a single inline button. The first user
-to press it opens the chest and receives the rewards; the button is then
-removed so nobody else can try.
+to press it opens the chest and receives the rewards.
+
+The original chest message is then **edited in place** into the result (opener
++ rewards) and its button is removed — no second message is sent, so the group
+is not spammed and a chest can never be pressed twice.
 """
 from __future__ import annotations
 
@@ -39,12 +42,17 @@ def build_chest_keyboard(chest_id: int) -> InlineKeyboardMarkup:
     )
 
 
-def format_rewards(rewards: dict) -> str:
-    """Render the reward lines of an opened chest.
+def format_rewards(rewards: dict, opener: str | None = None) -> str:
+    """Render the opened-chest message that replaces the spawn message.
 
     Example::
 
         🎁 صندوق باز شد!
+
+        👤 باز کننده:
+        Ali
+
+        Rewards:
 
         🪨 +۸۵۰ ابسیدین
         ✨ +۳ اتر
@@ -52,6 +60,8 @@ def format_rewards(rewards: dict) -> str:
         🐟 +۲۰ ماهی
     """
     lines = ["🎁 صندوق باز شد!", ""]
+    if opener:
+        lines += ["👤 باز کننده:", opener, "", "Rewards:", ""]
     for key in ("obsidian", "aether"):
         amount = rewards.get(key, 0)
         if amount:
@@ -130,6 +140,64 @@ async def _safe_answer(query, text: str | None = None, alert: bool = False) -> N
         pass
 
 
+async def _edit_chest_message(
+    context: ContextTypes.DEFAULT_TYPE,
+    query,
+    chest_id: int,
+    text: str,
+    chest=None,
+) -> bool:
+    """Rewrite the chest's own message with ``text`` and remove its button.
+
+    Editing via the callback query is tried first (it always targets the exact
+    message that was pressed). If that message is unavailable, the stored
+    ``chests.message_id`` from spawn time is used as a fallback. Failures are
+    logged, never raised — a chest is already granted in the database by this
+    point, so a failed edit must not break anything.
+    """
+    try:
+        await query.edit_message_text(text, parse_mode="HTML", reply_markup=None)
+        return True
+    except BadRequest as exc:
+        if "not modified" in str(exc).lower():
+            return True
+        logger.warning("Could not edit chest %s message: %s", chest_id, exc)
+    except TelegramError:
+        logger.warning("Could not edit chest %s message", chest_id, exc_info=True)
+    except Exception:
+        logger.exception("Unexpected error editing chest %s message", chest_id)
+
+    # Fallback: the message_id saved when the chest was spawned.
+    chat_id = getattr(chest, "group_id", None)
+    message_id = getattr(chest, "message_id", None)
+    if chat_id is None or message_id is None:
+        logger.warning(
+            "Chest %s has no stored message to edit; result not shown", chest_id
+        )
+        return False
+    try:
+        await context.bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=text,
+            parse_mode="HTML",
+            reply_markup=None,
+            read_timeout=SEND_READ_TIMEOUT,
+            write_timeout=SEND_WRITE_TIMEOUT,
+            connect_timeout=SEND_CONNECT_TIMEOUT,
+            pool_timeout=SEND_POOL_TIMEOUT,
+        )
+        return True
+    except (BadRequest, Forbidden, TelegramError):
+        logger.warning(
+            "Fallback edit of chest %s (chat %s, message %s) failed",
+            chest_id, chat_id, message_id, exc_info=True,
+        )
+    except Exception:
+        logger.exception("Unexpected error in fallback edit of chest %s", chest_id)
+    return False
+
+
 async def open_chest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle a press on the «باز کردن صندوق» button."""
     query = update.callback_query
@@ -167,20 +235,11 @@ async def open_chest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         await _safe_answer(query, "🎁 صندوق مال تو شد!")
 
-        # Remove the button so the chest cannot be pressed again.
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except (BadRequest, TelegramError):
-            pass
-
+        # Edit the ORIGINAL chest message into the result and drop its button,
+        # rather than sending a new message.
         mention = user.mention_html(user.full_name or f"کاربر {user.id}")
-        text = f"{mention}\n{format_rewards(result.rewards)}"
-        chat_id = query.message.chat_id if query.message is not None else user.id
-        sent = await safe_send_message(
-            context, chat_id, text, what=f"chest {chest_id} rewards", parse_mode="HTML"
-        )
-        if sent is None:
-            logger.warning("Could not announce rewards of chest %s in chat %s", chest_id, chat_id)
+        text = format_rewards(result.rewards, opener=mention)
+        await _edit_chest_message(context, query, chest_id, text, chest=result.chest)
     except Exception:
         logger.exception("Error while opening chest %s", chest_id)
         await _safe_answer(query, "خطایی پیش اومد؛ دوباره امتحان کن.", alert=True)

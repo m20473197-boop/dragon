@@ -1,8 +1,8 @@
-"""Dragon Management System — «اژدها های من».
+"""Dragon Management System — «اژدها».
 
 A selection-first interface for players who own several dragons:
 
-1. «اژدها های من» lists the player's dragons as inline buttons (one per
+1. «اژدها» lists the player's dragons as inline buttons (one per
    dragon, labelled with its type emoji and name).
 2. Pressing a button edits the message into that dragon's profile page. This
    only *selects* the dragon for viewing — it does **not** change the user's
@@ -249,7 +249,7 @@ def _food_report(spent: dict) -> str:
 
 # --- command ----------------------------------------------------------------
 async def my_dragons_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """«اژدها های من» — show the dragon selection list."""
+    """«اژدها» — show the dragon selection list."""
     user = update.effective_user
     message = update.effective_message
     players = context.bot_data["player_repo"]

@@ -94,8 +94,6 @@ COMMAND_MAP = {
     COMMAND_FISHING: fishing_command,
     COMMAND_EGGS: eggs_command,
     COMMAND_MY_DRAGONS_MENU: my_dragons_menu_command,
-    # Same command written without the space (also matches the نیم‌فاصله form).
-    "اژدهاهای من": my_dragons_menu_command,
     COMMAND_NAME_DRAGON: name_dragon_command,
     COMMAND_STORAGE: storage_command,
     COMMAND_MARKET: market_command,
