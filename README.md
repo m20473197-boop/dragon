@@ -40,10 +40,8 @@ Send these as normal messages in the group (no `/`):
 | `شکار`      | Hunt             | Catch a random animal (🐇 خرگوش / 🦌 گوزن / 🦌 غزال) for 1–9 🥩 meat. 15% chance to **find an egg** (auto-owned). 5 min cooldown (spam-protected). |
 | `ماهیگیری`  | Fishing          | Catch 10–20 🐟 fish. 10% chance to **find an egg** (auto-owned). 10 min cooldown. |
 | `تخم ها`    | My eggs / inventory | Lists your incubating eggs: type + time until hatching, plus dragons/meat/fish. |
-| `اژدهای من` | My dragons       | Shows each dragon's نام (name), نوع (type), ⭐ سطح (level), ✨ تجربه (current/required XP), ❤️ سلامت (HP), 🔥 قدرت (power). |
 | `اژدها های من` | Dragon management | Selection-first panel: one inline button per dragon, then that dragon's profile with 🥩 غذا دادن / ⬆️ ارتقا / ✏️ تغییر نام / 🔙 برگشت. **All feeding happens here.** |
 | `نام اژدها` | Name dragon      | The bot asks for a name; your next message names your most recent dragon. Sending a game command cancels it. |
-| `غذا بده`   | Feed dragon      | Shows your stored 🥩/🐟 with buttons to feed your newest dragon (consumes food, heals, grants XP, restores hunger). |
 | `سردخانه`   | Cold storage     | Shows your ❄️ سردخانه (cold storage): stored 🥩 گوشت and 🐟 ماهی. |
 
 ### Cold storage (سردخانه)
@@ -54,10 +52,10 @@ capacity limits**.
 
 - Hunting deposits meat **directly into cold storage**; fishing deposits fish
   **directly into cold storage**.
-- Feeding (`غذا بده`) consumes food **from cold storage**.
+- Feeding (from a dragon's page) consumes food **from cold storage**.
 
 The amounts live on the player record (`players.meat` / `players.fish`, also
-shown by `تخم ها`/`اژدهای من`); the named `game/storage.py::ColdStorageService`
+shown by `تخم ها`/`اژدها های من`); the named `game/storage.py::ColdStorageService`
 is the single place that reads and spends them, shared by the feed system.
 
 > ❄️ سردخانه من
@@ -99,13 +97,11 @@ reset deletes only those rows and corrects counters. Action statistics use
   birth). It decays **20 points per hour**. At or above 30 the dragon fights at
   full power; below 30 its **effective power** scales down to 50% at 0 hunger
   (`game/dragons.py::effective_power`, ready for combat).
-- **Feeding (`غذا بده`):** shows your food and two buttons:
-  - 🥩 **گوشت** — consumes 3 meat → restores hunger, +HP, +XP
-  - 🐟 **ماهی** — consumes 5 fish → restores hunger, +HP, +XP
-
-  Food is spent atomically (`spend_resource`, guarded `UPDATE`), so rapid taps
-  can never over-spend. Feeding XP can trigger level-ups (+max HP/power and full
-  heal). Logic lives in `game/feeding.py` (`FeedingService`).
+- **Feeding:** happens **only** on a dragon's own page (`اژدها های من` → select
+  a dragon → `🥩 غذا دادن`); there is no feeding command. Food is spent one unit
+  at a time, atomically (guarded `UPDATE`), so rapid taps can never over-spend.
+  Feeding XP can trigger level-ups (+max HP/power and full heal). Logic lives in
+  `game/feeding.py` (`FeedingService.feed_unit` / `feed_until_full`).
 
 ### Dragon growth
 
@@ -311,15 +307,15 @@ ever touch a dragon the presser owns — no accidental edits to another dragon,
 and forged callbacks for someone else's dragon are rejected. Management buttons
 only exist on a profile page, never on the selection list.
 
-Implemented in `handlers/dragon_manage.py`; `FeedingService.feed()` gained an
-optional `dragon_id` argument (default behaviour of `غذا بده` is unchanged).
-Tests: `scripts/test_dragon_manage.py`.
+Implemented in `handlers/dragon_manage.py`; feeding goes through
+`FeedingService.feed_unit()` / `feed_until_full()`, which always take the
+selected `dragon_id`. Tests: `scripts/test_dragon_manage.py`.
 
 ## 🥩 Feeding system (dragon page only)
 
-The standalone `غذا بده` command is **retired**: it now just points players to
-the dragon page, and leftover food buttons from old messages no longer feed.
-Feeding is reached only through `اژدها های من` → select a dragon → `🥩 غذا دادن`,
+The `غذا بده` and `اژدهای من` commands have been **removed completely** — the
+commands, their handlers, their modules and the old `feed:` inline buttons are
+all gone, so neither word does anything now. Feeding is reached only through `اژدها های من` → select a dragon → `🥩 غذا دادن`,
 which shows `🥩 غذا دادن به (نام اژدها)` plus the current hunger and cold-storage
 contents, with three buttons:
 

@@ -26,10 +26,8 @@ from config import (
     COMMAND_ADMIN_PANEL,
     COMMAND_ADMIN_TEST_EGG,
     COMMAND_EGGS,
-    COMMAND_FEED,
     COMMAND_FISHING,
     COMMAND_HUNT,
-    COMMAND_MY_DRAGONS,
     COMMAND_MY_DRAGONS_MENU,
     COMMAND_NAME_DRAGON,
     COMMAND_STORAGE,
@@ -44,7 +42,6 @@ from game.upgrades import UpgradeService
 from handlers.common import help_command, start_command
 from handlers.eggs import eggs_command
 from handlers.errors import on_error
-from handlers.feed import FEED_PREFIX, feed_callback
 from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.jobs import hatch_sweep, spawn_tick
@@ -53,10 +50,8 @@ from admin.handlers import admin_capture, admin_callback, admin_panel_command, a
 from handlers.dragon_manage import (
     PREFIX as DRAGON_MANAGE_PREFIX,
     dragon_manage_callback,
-    feed_disabled_command,
     my_dragons_menu_command,
 )
-from handlers.mydragons import my_dragons_command
 from handlers.name_dragon import (
     cancel_naming_prompt,
     capture_dragon_name,
@@ -79,13 +74,10 @@ COMMAND_MAP = {
     COMMAND_HUNT: hunt_command,
     COMMAND_FISHING: fishing_command,
     COMMAND_EGGS: eggs_command,
-    COMMAND_MY_DRAGONS: my_dragons_command,
     COMMAND_MY_DRAGONS_MENU: my_dragons_menu_command,
     # Same command written without the space (also matches the نیم‌فاصله form).
     "اژدهاهای من": my_dragons_menu_command,
     COMMAND_NAME_DRAGON: name_dragon_command,
-    # «غذا بده» is retired — feeding now happens on the dragon profile page.
-    COMMAND_FEED: feed_disabled_command,
     COMMAND_STORAGE: storage_command,
     COMMAND_ADMIN_PANEL: admin_panel_command,
     COMMAND_ADMIN_TEST_EGG: admin_test_egg_command,
@@ -191,11 +183,6 @@ def register_all(application: Application) -> None:
     # Inline-button claim: "claim_egg:<id>"
     application.add_handler(
         CallbackQueryHandler(claim_callback, pattern=rf"^{CLAIM_PREFIX}\d+$")
-    )
-
-    # Inline-button feeding: "feed:<food>"
-    application.add_handler(
-        CallbackQueryHandler(feed_callback, pattern=rf"^{FEED_PREFIX}(meat|fish)$")
     )
 
     # Dragon management panel: "dg:<action>[:<dragon_id>...]"

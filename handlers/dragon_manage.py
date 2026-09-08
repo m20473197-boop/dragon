@@ -10,7 +10,7 @@ A selection-first interface for players who own several dragons:
    all bound to the selected dragon id.
 4. 🔙 برگشت edits the message back to the selection list.
 
-Feeding lives **only** here (the old «غذا بده» command is disabled): the food
+Feeding lives **only** here — there is no feeding command at all: the food
 menu offers «🥩 یک غذا بده» (one unit) and «🍖 سیرش کن» (fill up, consuming
 only what is needed).
 
@@ -235,21 +235,6 @@ async def my_dragons_menu_command(update: Update, context: ContextTypes.DEFAULT_
     active_id = players.get_active_dragon_id(user.id)
     await message.reply_text(
         SELECT_TITLE, reply_markup=selection_keyboard(dragons, active_id)
-    )
-
-
-async def feed_disabled_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """The retired «غذا بده» command: point users to the dragon page.
-
-    Kept as a friendly redirect (rather than silence) so existing players who
-    type the old command learn where feeding moved to.
-    """
-    from config import COMMAND_MY_DRAGONS_MENU
-
-    await update.effective_message.reply_text(
-        "🍖 غذا دادن حالا از صفحه‌ی خود اژدها انجام می‌شه.\n\n"
-        f"دستور «{COMMAND_MY_DRAGONS_MENU}» رو بفرست، اژدهات رو انتخاب کن و "
-        "دکمه‌ی «🥩 غذا دادن» رو بزن. 🐉"
     )
 
 

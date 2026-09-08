@@ -46,18 +46,27 @@ def main() -> None:
     assert storage.count(1, "meat") == 12 and storage.count(1, "fish") == 18
     print("✓ meat/fish deposited into cold storage")
 
-    # 3. Feeding consumes from cold storage (meat cost 3, fish cost 5).
-    dragons.create_newborn(1, "fire")
-    assert feeding.feed(1, "meat").success
-    assert (storage.contents(1).meat, storage.contents(1).fish) == (9, 18)
-    assert feeding.feed(1, "fish").success
-    assert (storage.contents(1).meat, storage.contents(1).fish) == (9, 13)
+    # 3. Feeding (from the dragon page) consumes from cold storage, 1 unit
+    #    at a time. The dragon must be hungry to accept food.
+    import time as _time
+    from game.dragons import anchor_last_fed_time
+
+    d = dragons.create_newborn(1, "fire")
+    _now = _time.time()
+    dragons.dragons.update_full_stats(
+        d.id, level=d.level, xp=d.xp, hp=d.hp, max_hp=d.max_hp, power=d.power,
+        hunger=50, last_fed_time=anchor_last_fed_time(50, _now),
+    )
+    assert feeding.feed_unit(1, d.id, "meat").success
+    assert (storage.contents(1).meat, storage.contents(1).fish) == (11, 18)
+    assert feeding.feed_unit(1, d.id, "fish").success
+    assert (storage.contents(1).meat, storage.contents(1).fish) == (11, 17)
     print("✓ feeding consumes meat/fish from cold storage")
 
     # 4. Over-spending is rejected atomically (contents unchanged).
     assert storage.consume(1, "meat", 999) is False
     assert storage.consume(1, "fish", 999) is False
-    assert (storage.contents(1).meat, storage.contents(1).fish) == (9, 13)
+    assert (storage.contents(1).meat, storage.contents(1).fish) == (11, 17)
     print("✓ cannot consume more than stored")
 
     # 5. Unknown player reads as empty and feeds fail without error.

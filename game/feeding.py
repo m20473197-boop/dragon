@@ -5,8 +5,10 @@ and restores hunger. The whole operation runs in one transaction and the
 resource cost is checked with an atomic, guarded UPDATE, so rapid/double taps
 can never spend more food than the player actually has.
 
-* Meat: consumes 3 🥩 meat  -> +hunger, +HP, +XP.
-* Fish: consumes 5 🐟 fish  -> +hunger, +HP, +XP.
+Feeding is reached only from the dragon profile page («اژدها های من» ->
+select a dragon -> «🥩 غذا دادن»); there is no feeding command. Food is spent
+one unit at a time (see config.FOOD_UNITS), either a single unit or exactly as
+many as the dragon needs to become full.
 
 Hunger decays over time (see game.dragons.current_hunger); a well-fed dragon
 fights at full power while a hungry one is weaker (effective_power).
@@ -43,21 +45,6 @@ class UnitFeedResult:
     levels_gained: int = 0
 
 
-@dataclass
-class FeedResult:
-    """Outcome of feeding a dragon."""
-
-    success: bool
-    reason: str = ""                      # "no_dragon" | "not_enough"
-    food_key: Optional[str] = None
-    dragon: Optional[Dragon] = None       # dragon state after feeding
-    hp_healed: int = 0
-    xp_added: int = 0
-    hunger_before: int = 0
-    hunger_after: int = 0
-    levels_gained: int = 0
-
-
 class FeedingService:
     def __init__(
         self,
@@ -72,100 +59,6 @@ class FeedingService:
     def food_count(self, owner_id: int, food_key: str) -> int:
         """How much of the given food is in the owner's cold storage."""
         return self.storage.count(owner_id, FOODS[food_key]["resource"])
-
-    def feed(
-        self,
-        owner_id: int,
-        food_key: str,
-        now: Optional[float] = None,
-        dragon_id: Optional[int] = None,
-    ) -> FeedResult:
-        """Feed one of the owner's dragons with one unit of ``food_key``.
-
-        ``dragon_id`` selects a specific dragon (it must belong to
-        ``owner_id``); when omitted the owner's newest dragon is fed, which is
-        the original behaviour of the «غذا بده» command.
-
-        Returns a FeedResult. On insufficient food / no dragon, nothing is
-        changed.
-        """
-        now = now if now is not None else time.time()
-        if food_key not in FOODS:
-            raise ValueError(f"Unknown food: {food_key!r}")
-        food = FOODS[food_key]
-
-        with get_db() as conn:
-            if dragon_id is None:
-                dragon = self.dragons.newest_for_owner(owner_id, conn=conn)
-            else:
-                # Ownership is enforced here so a forged button can never feed
-                # somebody else's dragon.
-                dragon = self.dragons.get_owned(dragon_id, owner_id, conn=conn)
-            if dragon is None:
-                return FeedResult(success=False, reason="no_dragon")
-
-            # Consume the food from cold storage; the guarded UPDATE only
-            # succeeds if enough is stored, so two concurrent feeds cannot both
-            # spend it.
-            if not self.storage.consume(
-                owner_id, food["resource"], food["cost"], conn=conn
-            ):
-                return FeedResult(success=False, reason="not_enough")
-
-            # Compute effective (decayed) hunger before feeding.
-            hunger_before = current_hunger(dragon, now)
-            hunger_after = min(DRAGON_DEFAULT_HUNGER, hunger_before + food["hunger"])
-            # Anchor the feeding timestamp so the time-based hunger decay
-            # matches hunger_after (current_hunger reads from last_fed_time).
-            fed_time = anchor_last_fed_time(hunger_after, now)
-
-            # Apply XP + level-ups (pure math; same rules as DragonService).
-            xp = dragon.xp + food["xp"]
-            level = dragon.level
-            max_hp = dragon.max_hp
-            power = dragon.power
-            levels_gained = 0
-            while xp >= xp_required_for_level(level):
-                xp -= xp_required_for_level(level)
-                level += 1
-                max_hp += LEVEL_UP_MAX_HP_BONUS
-                power += LEVEL_UP_POWER_BONUS
-                levels_gained += 1
-
-            # Healing: level-up fully restores HP; otherwise the food heals,
-            # capped at max HP.
-            if levels_gained > 0:
-                hp = max_hp
-                hp_healed = max_hp - dragon.hp
-            else:
-                new_hp = min(max_hp, dragon.hp + food["hp"])
-                hp_healed = new_hp - dragon.hp
-                hp = new_hp
-
-            self.dragons.update_full_stats(
-                dragon.id,
-                level=level,
-                xp=xp,
-                hp=hp,
-                max_hp=max_hp,
-                power=power,
-                hunger=hunger_after,
-                last_fed_time=fed_time,
-                conn=conn,
-            )
-            updated = self.dragons.get(dragon.id, conn=conn)
-
-        return FeedResult(
-            success=True,
-            food_key=food_key,
-            dragon=updated,
-            hp_healed=hp_healed,
-            xp_added=food["xp"],
-            hunger_before=hunger_before,
-            hunger_after=hunger_after,
-            levels_gained=levels_gained,
-        )
-
 
     # --- profile-page feeding (single unit / fill up) ----------------------
     def feed_unit(

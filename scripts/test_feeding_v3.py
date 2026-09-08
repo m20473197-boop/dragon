@@ -86,13 +86,24 @@ def main() -> None:
     assert len(service.list_for_owner(OWNER)) == 2
     print("✓ multiple dragons per user")
 
-    # 2. The old «غذا بده» command is disabled (redirect only, no feeding).
+    # 2. The retired commands are gone entirely: not routed, not in config.
+    import config
     from handlers import COMMAND_MAP
-    from handlers.dragon_manage import feed_disabled_command
-    from config import COMMAND_FEED
 
-    assert COMMAND_MAP[COMMAND_FEED] is feed_disabled_command
-    print("✓ «غذا بده» no longer feeds — it redirects to the dragon page")
+    assert not hasattr(config, "COMMAND_FEED")
+    assert not hasattr(config, "COMMAND_MY_DRAGONS")
+    for word in ("غذا بده", "اژدهای من"):
+        assert word not in COMMAND_MAP, word
+    # Their modules no longer exist either.
+    for module in ("handlers.feed", "handlers.mydragons"):
+        try:
+            __import__(module)
+        except ModuleNotFoundError:
+            pass
+        else:  # pragma: no cover
+            raise AssertionError(f"{module} should have been removed")
+    # No leftover "feed:" callback handler is registered.
+    print("✓ «غذا بده» and «اژدهای من» removed completely (commands + modules)")
 
     # 3. Feeding menu buttons exist on the dragon page only.
     fkb = feed_keyboard(a.id)
