@@ -25,7 +25,8 @@ CREATE INDEX IF NOT EXISTS idx_players_username ON players (username);
 CREATE TABLE IF NOT EXISTS chats (
     chat_id    INTEGER PRIMARY KEY,                 -- Telegram group chat ID
     title      TEXT,
-    last_seen  REAL NOT NULL                        -- unix timestamp of last activity
+    last_seen  REAL NOT NULL,                       -- unix timestamp of last activity
+    last_egg_spawn_time REAL                        -- unix timestamp of the last egg spawned here
 );
 
 CREATE INDEX IF NOT EXISTS idx_chats_last_seen ON chats (last_seen);

@@ -1,6 +1,7 @@
 """Scheduled background jobs: egg spawning, hatching and expiry.
 
-* ``spawn_tick``  — periodically rolls for a new egg in every active group.
+* ``spawn_tick``  — periodically rolls for a new egg in every active group,
+  respecting a per-group spawn cooldown (``config.EGG_SPAWN_INTERVAL``).
 * ``chest_tick``  — periodically rolls for a random chest in every active
   group, and expires chests nobody opened in time.
 * ``hatch_sweep`` — periodically hatches due eggs and expires stale unclaimed
@@ -24,6 +25,7 @@ from config import (
     SPAWN_ACTIVE_WINDOW_SECONDS,
     SPAWN_CHANCE_PER_CHECK,
 )
+from game import spawn_settings
 from game.eggs import dragon_display, egg_display
 from handlers.chests import CHEST_TEXT, build_chest_keyboard
 from handlers.spawn import SPAWN_TEXT, build_spawn_keyboard
@@ -48,11 +50,24 @@ async def spawn_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     for chat in active:
         try:
-            # Groups that already have an unclaimed egg are skipped atomically.
             if random.random() >= SPAWN_CHANCE_PER_CHECK:
                 continue
+
+            # Per-group cooldown: at most one egg per EGG_SPAWN_INTERVAL.
+            # The claim is a guarded UPDATE, so simultaneous ticks cannot both
+            # spawn, and the timestamp is stored so the timer survives a
+            # restart. Each group has its own independent timer.
+            if not chats_repo.try_claim_egg_spawn(
+                chat.chat_id, spawn_settings.get_interval()
+            ):
+                continue
+
+            # Groups that already have an unclaimed egg are skipped atomically.
             egg = egg_service.spawn_wild_egg(chat.chat_id)
             if egg is None:
+                # Nothing spawned after all — give the slot back so the group
+                # is not silently locked out for a whole interval.
+                chats_repo.release_egg_spawn(chat.chat_id, chat.last_egg_spawn_time)
                 continue
             try:
                 sent = await context.bot.send_message(
@@ -62,7 +77,9 @@ async def spawn_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 egg_service.eggs.set_message_id(egg.id, sent.message_id)
             except (BadRequest, TelegramError):
-                # Bot removed from group / cannot post — skip it.
+                # Bot removed from group / cannot post — skip it. The egg row
+                # exists but has no message; the cooldown still applies so the
+                # bot does not hammer a group it cannot post in.
                 logger.warning("Could not spawn egg in chat %s", chat.chat_id, exc_info=True)
         except Exception:
             logger.exception("spawn_tick: failed for chat %s", chat.chat_id)

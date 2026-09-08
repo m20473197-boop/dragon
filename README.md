@@ -458,3 +458,31 @@ creation ever fails, the obsidian is refunded.
 Prices, amounts and new items live in `config.MARKET_ITEMS` — extending the
 market (including filling the special category) is a configuration change.
 Code: `game/market.py`, `handlers/market.py`. Tests: `scripts/test_market.py`.
+
+## 🥚 Egg spawn cooldown
+
+Eggs used to appear far too often (a 40% roll every 3 minutes per group). Each
+group now has its own **spawn cooldown**: after an egg appears, no further egg
+can spawn in that group until `EGG_SPAWN_INTERVAL` has passed.
+
+| Setting | Value |
+|---------|-------|
+| `EGG_SPAWN_INTERVAL` | **7200 s (2 hours)** by default |
+| Env override | `DRAGON_EGG_SPAWN_INTERVAL` (e.g. `60` for testing) |
+| Admin panel | `⏳ فاصله ظاهر شدن تخم` → 1 minute / 90 minutes / 2 hours / reset |
+
+Example: Group A spawns at 12:00 → next possible 14:00, while Group B spawning
+at 12:30 → next possible 14:30. The two timers are completely independent.
+
+**How it works:** `chats.last_egg_spawn_time` (additive column, migrated in
+place) records the last spawn per group, and the spawner claims its slot with a
+single guarded `UPDATE ... WHERE last_egg_spawn_time IS NULL OR
+last_egg_spawn_time <= now - interval`. Because the check and the write are one
+statement, two ticks can never both spawn (verified with 12 concurrent
+attempts), and because the timestamp is in the database the cooldown **survives
+a bot restart**. If the egg cannot actually be created the slot is released, so
+a group is never locked out for nothing.
+
+Only the *frequency* changed — the claim button, egg storage, the one-egg-
+per-group rule, incubation and hatching are all untouched. The runtime value
+lives in `game/spawn_settings.py`. Tests: `scripts/test_spawn_cooldown.py`.

@@ -17,6 +17,7 @@ from admin import keyboards as kb
 from admin.permissions import can_use_test_tools, debug_enabled, is_admin
 from admin.service import AdminService
 from admin.state import clear_pending, get_pending, set_pending
+from game import spawn_settings
 from config import COMMAND_ADMIN_ADD_FOOD
 from utils.text import normalize_command, to_fa
 
@@ -29,6 +30,20 @@ TEST_CHEST_TEXT = "🎁 صندوق تستی ظاهر شد!"
 
 def _service(context: ContextTypes.DEFAULT_TYPE) -> AdminService:
     return context.bot_data["admin_service"]
+
+
+def _spawn_interval_text() -> str:
+    """Explain the current per-group egg spawn cooldown."""
+    seconds = spawn_settings.get_interval()
+    minutes = seconds // 60
+    source = "موقت (ادمین)" if spawn_settings.active() else "پیش‌فرض"
+    return (
+        "⏳ فاصله ظاهر شدن تخم در هر گروه\n\n"
+        f"مقدار فعلی: {to_fa(seconds)} ثانیه (~{to_fa(minutes)} دقیقه)\n"
+        f"منبع: {source}\n\n"
+        "هر گروه تایمر مستقل خودش رو داره و بعد از ری‌استارت هم حفظ می‌شه.\n"
+        "یک مقدار انتخاب کن:"
+    )
 
 
 def _stats_text(stats: dict) -> str:
@@ -201,6 +216,32 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         if action == kb.CB_ADD_FOOD:
             await _handle_add_food(query, context, arg)
+            return
+
+        if action == kb.CB_SPAWN_INTERVAL:
+            if arg is None:
+                await _safe_edit(
+                    query,
+                    _spawn_interval_text(),
+                    kb.spawn_interval_keyboard(),
+                )
+                await _answer(query)
+            else:
+                seconds = int(arg)
+                if seconds > 0:
+                    spawn_settings.set_interval(seconds)
+                    text = (
+                        "✅ فاصله ظاهر شدن تخم در هر گروه: "
+                        f"{to_fa(seconds)} ثانیه"
+                    )
+                else:
+                    spawn_settings.set_interval(None)
+                    text = (
+                        "✅ فاصله ظاهر شدن تخم به مقدار پیش‌فرض برگشت "
+                        f"({to_fa(spawn_settings.get_interval())} ثانیه)."
+                    )
+                await _safe_edit(query, text, kb.panel_keyboard())
+                await _answer(query)
             return
 
         if action == kb.CB_HATCH:

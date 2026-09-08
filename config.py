@@ -238,6 +238,16 @@ MARKET_CATEGORIES: dict[str, dict] = {
 # --- Egg spawning in groups -------------------------------------------------
 SPAWN_CHECK_INTERVAL_SECONDS: int = 180   # how often the spawner rolls per group
 SPAWN_CHANCE_PER_CHECK: float = 0.40      # probability of an egg per check
+
+# Minimum time between two eggs in the SAME group. The spawner still rolls on
+# its check interval, but a group that spawned an egg is on cooldown until
+# this many seconds have passed, so at most one egg appears per interval.
+# Each group has its own timer (stored in the database, so it survives a
+# restart). Override with the DRAGON_EGG_SPAWN_INTERVAL environment variable:
+# production 7200 (2 hours), testing e.g. 60.
+EGG_SPAWN_INTERVAL: int = int(
+    os.environ.get("DRAGON_EGG_SPAWN_INTERVAL", 2 * 60 * 60)
+)
 SPAWN_ACTIVE_WINDOW_SECONDS: int = 2 * 24 * 3600  # only spawn in recently active groups
 CLAIM_WINDOW_SECONDS: int = 15 * 60       # unclaimed eggs disappear after this
 HATCH_SWEEP_INTERVAL_SECONDS: int = 30    # how often eggs are hatched/expired

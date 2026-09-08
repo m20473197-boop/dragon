@@ -14,6 +14,7 @@ CB_STATS = "stats"
 CB_USER_INFO = "user_info"
 CB_ADD_FOOD = "add_food"
 CB_HATCH = "hatch"
+CB_SPAWN_INTERVAL = "spawn_interval"
 CB_RESET = "reset"
 CB_RESET_CONFIRM = "reset_confirm"
 CB_BACK = "back"
@@ -42,6 +43,12 @@ def panel_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton("⏩ تغییر زمان تخم", callback_data=f"{PREFIX}{CB_HATCH}")]
         )
         rows.append(
+            [InlineKeyboardButton(
+                "⏳ فاصله ظاهر شدن تخم",
+                callback_data=f"{PREFIX}{CB_SPAWN_INTERVAL}",
+            )]
+        )
+        rows.append(
             [InlineKeyboardButton("🗑 پاک کردن اطلاعات تست", callback_data=f"{PREFIX}{CB_RESET}")]
         )
     # Monitoring tools are always available to admins.
@@ -66,6 +73,22 @@ def hatch_keyboard() -> InlineKeyboardMarkup:
         ],
         [InlineKeyboardButton("🔙 بازگشت", callback_data=f"{PREFIX}{CB_BACK}")],
     ]
+    return InlineKeyboardMarkup(rows)
+
+
+def spawn_interval_keyboard() -> InlineKeyboardMarkup:
+    """Choices for the per-group egg spawn interval."""
+    from game.spawn_settings import INTERVAL_CHOICES
+
+    rows = [
+        [
+            InlineKeyboardButton(
+                label, callback_data=f"{PREFIX}{CB_SPAWN_INTERVAL}:{seconds}"
+            )
+        ]
+        for seconds, label in INTERVAL_CHOICES
+    ]
+    rows.append([InlineKeyboardButton("🔙 بازگشت", callback_data=f"{PREFIX}{CB_BACK}")])
     return InlineKeyboardMarkup(rows)
 
 

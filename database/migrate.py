@@ -31,6 +31,9 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
         "obsidian": "INTEGER NOT NULL DEFAULT 0",
         "aether": "INTEGER NOT NULL DEFAULT 0",
     },
+    "chats": {
+        "last_egg_spawn_time": "REAL",
+    },
     "eggs": {
         "is_test": "INTEGER NOT NULL DEFAULT 0",
     },
