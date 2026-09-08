@@ -91,7 +91,12 @@ def main() -> None:
     pkb = profile_keyboard(azar.id)
     pdatas = [b.callback_data for row in pkb.inline_keyboard for b in row]
     plabels = [b.text for row in pkb.inline_keyboard for b in row]
-    assert plabels == ["🥩 غذا دادن", "⬆️ ارتقا", "✏️ تغییر نام", "🔙 برگشت"]
+    # The active-dragon button was added on top of the existing four; the
+    # original management buttons must all still be there, in order.
+    assert plabels == [
+        "⭐ انتخاب به عنوان فعال",
+        "🥩 غذا دادن", "⬆️ ارتقا", "✏️ تغییر نام", "🔙 برگشت",
+    ], plabels
     assert all(str(azar.id) in d for d in pdatas if not d.endswith("list"))
     assert f"{PREFIX}list" in pdatas  # back button returns to the list
     # No management buttons on the selection screen.

@@ -4,11 +4,20 @@ A selection-first interface for players who own several dragons:
 
 1. «اژدها های من» lists the player's dragons as inline buttons (one per
    dragon, labelled with its type emoji and name).
-2. Pressing a button edits the message into that dragon's profile page and
-   marks that dragon as the user's *active* dragon.
-3. The profile page offers 🥩 غذا دادن / ⬆️ ارتقا / ✏️ تغییر نام / 🔙 برگشت,
-   all bound to the selected dragon id.
+2. Pressing a button edits the message into that dragon's profile page. This
+   only *selects* the dragon for viewing — it does **not** change the user's
+   active dragon.
+3. The profile page offers ⭐ انتخاب به عنوان فعال / 🥩 غذا دادن / ⬆️ ارتقا /
+   ✏️ تغییر نام / 🔙 برگشت, all bound to the selected dragon id.
 4. 🔙 برگشت edits the message back to the selection list.
+
+Selected vs. active dragon (see :mod:`game.selection`):
+
+* the **selected** dragon is temporary session state and drives viewing,
+  feeding, upgrading and renaming — feeding «آذر» feeds only «آذر»;
+* the **active** dragon is persisted on the players row and is what the rest
+  of the game (combat) uses. It changes **only** through the dedicated
+  «⭐ انتخاب به عنوان اژدهای فعال» button.
 
 Feeding lives **only** here — there is no feeding command at all: the food
 menu offers «🥩 یک غذا بده» (one unit) and «🍖 سیرش کن» (fill up, consuming
@@ -30,6 +39,7 @@ from telegram.ext import ContextTypes
 
 from config import FOODS, HUNGER_LOW_THRESHOLD, UPGRADES
 from game.dragons import current_hunger, dragon_type_display, effective_power
+from game.selection import clear_selected_dragon, set_selected_dragon
 from handlers.name_dragon import start_naming_for_dragon
 from utils.text import to_fa
 
@@ -45,6 +55,7 @@ ACTION_EAT_FULL = "eatfull"   # dg:eatfull:<dragon_id>     -> feed until full
 ACTION_UPGRADE = "up"         # dg:up:<dragon_id>          -> upgrade menu
 ACTION_UPGRADE_DO = "updo"    # dg:updo:<dragon_id>:<key>  -> apply upgrade
 ACTION_RENAME = "rename"
+ACTION_SET_ACTIVE = "setactive"  # dg:setactive:<dragon_id> -> make it the active dragon
 
 SELECT_TITLE = "🐉 اژدهای خود را انتخاب کنید:"
 NO_DRAGONS_TEXT = (
@@ -53,6 +64,8 @@ NO_DRAGONS_TEXT = (
     "اژدهای خودت از تخم بیرون میاد. 🥚"
 )
 FULL_TEXT = "🐉 اژدهای تو سیر است!"
+BTN_SET_ACTIVE = "⭐ انتخاب به عنوان فعال"
+ALREADY_ACTIVE_TEXT = "⭐ این اژدها همین حالا اژدهای فعال توئه."
 
 
 # --- keyboards --------------------------------------------------------------
@@ -78,9 +91,18 @@ def selection_keyboard(dragons, active_id: int | None = None) -> InlineKeyboardM
 
 
 def profile_keyboard(dragon_id: int) -> InlineKeyboardMarkup:
-    """Management buttons, each carrying the selected dragon's id."""
+    """Management buttons, each carrying the selected dragon's id.
+
+    The first row is the ONLY way to change the active dragon.
+    """
     return InlineKeyboardMarkup(
         [
+            [
+                InlineKeyboardButton(
+                    BTN_SET_ACTIVE,
+                    callback_data=f"{PREFIX}{ACTION_SET_ACTIVE}:{dragon_id}",
+                )
+            ],
             [
                 InlineKeyboardButton(
                     "🥩 غذا دادن", callback_data=f"{PREFIX}{ACTION_FEED}:{dragon_id}"
@@ -144,8 +166,11 @@ def upgrade_keyboard(dragon_id: int) -> InlineKeyboardMarkup:
 
 
 # --- texts ------------------------------------------------------------------
-def profile_text(dragon, now: float | None = None) -> str:
-    """Render the dragon profile page."""
+def profile_text(dragon, now: float | None = None, is_active: bool = False) -> str:
+    """Render the dragon profile page.
+
+    ``is_active`` only adds an informational line; it never changes anything.
+    """
     now = now if now is not None else time.time()
     emoji, type_name = dragon_type_display(dragon.dragon_type)
     hunger = current_hunger(dragon, now)
@@ -158,8 +183,7 @@ def profile_text(dragon, now: float | None = None) -> str:
         hunger_line = f"🍖 سیری: {to_fa(hunger)}٪"
         power_line = f"🔥 قدرت: {to_fa(dragon.power)}"
 
-    return "\n".join(
-        [
+    lines = [
             "🐉 مشخصات اژدها",
             "",
             f"📛 نام: {dragon.name}",
@@ -172,8 +196,10 @@ def profile_text(dragon, now: float | None = None) -> str:
             power_line,
             "",
             hunger_line,
-        ]
-    )
+    ]
+    if is_active:
+        lines += ["", "⭐ اژدهای فعال تو"]
+    return "\n".join(lines)
 
 
 def feed_menu_text(dragon, meat: int, fish: int, now: float | None = None) -> str:
@@ -253,6 +279,8 @@ async def dragon_manage_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     try:
         if action == ACTION_LIST:
+            # Going back to the list drops the temporary selection.
+            clear_selected_dragon(getattr(context, "user_data", None))
             await _show_list(query, context, user_id)
             return
 
@@ -263,10 +291,12 @@ async def dragon_manage_callback(update: Update, context: ContextTypes.DEFAULT_T
             return
 
         if action == ACTION_VIEW:
-            # Selecting a dragon also makes it the user's active dragon.
-            context.bot_data["player_repo"].set_active_dragon(user_id, dragon.id)
-            await _answer(query)
-            await _edit(query, profile_text(dragon), profile_keyboard(dragon.id))
+            # Viewing only SELECTS the dragon (temporary session state).
+            # The active dragon is deliberately left untouched here — it can
+            # only be changed with «⭐ انتخاب به عنوان اژدهای فعال».
+            await _show_profile(query, context, dragon, user_id)
+        elif action == ACTION_SET_ACTIVE:
+            await _set_active(query, context, dragon, user_id)
         elif action == ACTION_FEED:
             await _show_feed_menu(query, context, dragon, user_id)
         elif action == ACTION_EAT_ONE:
@@ -284,6 +314,38 @@ async def dragon_manage_callback(update: Update, context: ContextTypes.DEFAULT_T
     except (BadRequest, TelegramError):
         logger.debug("Dragon management callback failed", exc_info=True)
         await _answer(query)
+
+
+async def _show_profile(query, context, dragon, user_id: int) -> None:
+    """Open a dragon's page. Selection only — the active dragon is unchanged."""
+    set_selected_dragon(getattr(context, "user_data", None), dragon.id)
+    active_id = context.bot_data["player_repo"].get_active_dragon_id(user_id)
+    await _answer(query)
+    await _edit(
+        query,
+        profile_text(dragon, is_active=(active_id == dragon.id)),
+        profile_keyboard(dragon.id),
+    )
+
+
+async def _set_active(query, context, dragon, user_id: int) -> None:
+    """«⭐ انتخاب به عنوان اژدهای فعال» — the ONLY way to change it."""
+    players = context.bot_data["player_repo"]
+    if players.get_active_dragon_id(user_id) == dragon.id:
+        await _answer(query, ALREADY_ACTIVE_TEXT, alert=True)
+        return
+
+    if not players.set_active_dragon(user_id, dragon.id):
+        await _answer(query, "این اژدها مال تو نیست.", alert=True)
+        return
+
+    await _answer(query, f"⭐ {dragon.name} اکنون اژدهای فعال شماست.", alert=True)
+    await _edit(
+        query,
+        f"⭐ {dragon.name} اکنون اژدهای فعال شماست.\n\n"
+        + profile_text(dragon, is_active=True),
+        profile_keyboard(dragon.id),
+    )
 
 
 async def _show_list(query, context, user_id: int) -> None:
