@@ -4,10 +4,22 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    env:
+      # A syntactically valid dummy token. The suites never reach the network,
+      # and CI must NEVER use the real token: starting a second polling client
+      # would fight the running bot for getUpdates.
+      DRAGON_BOT_TOKEN: "123456:TEST-TOKEN-FOR-CI-ONLY"
+      DRAGON_ADMIN_IDS: "1"
+      DRAGON_DEBUG: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -16,11 +28,35 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
       - name: Install dependencies
-        run:
+        run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pyflakes
 
-      - name: Run test
-        run:
-          python bot.py
+      - name: Lint (pyflakes)
+        run: |
+          python -m pyflakes handlers game models admin utils scripts config.py bot.py database \
+            | grep -v 'redefinition of unused' && exit 1 || true
+
+      - name: Check the bot boots (import + wiring only, no polling)
+        # NOTE: never run `python bot.py` here — it starts long-polling and
+        # never exits, and would conflict with the live bot's token.
+        run: python -c "import bot; print('bot module imports cleanly')"
+
+      - name: Run test suites
+        run: |
+          set -e
+          for suite in smoke_test test_atomicity test_growth test_feeding \
+                       test_storage test_dragon_manage test_feeding_v3 \
+                       test_chests test_market test_upgrades \
+                       test_spawn_cooldown test_send_resilience test_combat \
+                       test_conflict test_selection test_chest_edit \
+                       test_messages test_temporary test_admin; do
+            echo "::group::$suite"
+            python "scripts/$suite.py"
+            echo "::endgroup::"
+          done
+          echo "All suites passed ✅"

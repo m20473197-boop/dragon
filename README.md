@@ -194,6 +194,20 @@ python bot.py
 The SQLite database (`dragon.db`) and all tables are created automatically.
 Override its path with `DRAGON_DB_PATH`.
 
+> **Secrets:** `.env` holds your real token and is git-ignored — only
+> `.env.example` is committed. Never commit `.env`, and never put a token in
+> source, CI config or a test.
+
+### Continuous integration
+
+`.github/workflows/main.yml` runs on every push to `main`: pyflakes lint, an
+import check of `bot.py`, then all 19 test suites against a throwaway database
+with a **dummy** token supplied via workflow `env`.
+
+CI must never run `python bot.py`: that starts long-polling, never exits, and a
+second polling client fights the live bot for `getUpdates` (see the Conflict
+section). The import check verifies wiring without touching the network.
+
 ## Project structure
 
 ```
@@ -273,8 +287,12 @@ dragon_bot/
 ```bash
 python3 scripts/smoke_test.py        # full feature lifecycle
 python3 scripts/test_atomicity.py    # concurrency: no duplicate rewards/dragons
+
+# everything (what CI runs):
+for s in scripts/test_*.py scripts/smoke_test.py; do python3 "$s" || break; done
 ```
 
+There are 19 suites; `test_admin.py` needs `DRAGON_ADMIN_IDS=1 DRAGON_DEBUG=true`.
 Runs against a throwaway DB. The smoke test covers player creation,
 hunting/fishing, cooldowns, chat tracking, spawning, claiming, found eggs,
 hatching and expiry; the atomicity test runs **concurrent** hunts and claims in
