@@ -22,8 +22,7 @@ async def hunt_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if not result.success:
         await message.reply_text(
-            "⏳ هنوز از شکار قبلی برنگشتی و خسته‌ای!\n\n"
-            f"⌛ تا شکار بعدی {format_remaining(result.cooldown_remaining)} صبر کن."
+            f"⏳ خسته‌ای!\n\n⌛ {format_remaining(result.cooldown_remaining)}"
         )
         return
 
@@ -31,19 +30,18 @@ async def hunt_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     lines = [
         "🏹 شکار موفق!",
         "",
-        f"{prey['emoji']} یک {prey['name']} شکار کردی",
-        "",
-        f"🥩 {to_fa(result.meat_gained)} گوشت دریافت کردی",
+        f"{prey['emoji']} {prey['name']}",
+        f"🥩 +{to_fa(result.meat_gained)}",
     ]
     if created:
         lines.append("")
-        lines.append("🐉 به بازی اژدها خوش اومدی!")
+        lines.append("🐉 خوش اومدی!")
 
     if result.egg_found:
         egg = egg_service.create_found_egg(update.effective_chat.id, user.id)
         emoji, name = egg_display(egg.egg_type)
         lines.append("")
-        lines.append(f"{emoji} یک <b>{name}</b> هم پیدا کردی و تخم رو برداشتی!")
+        lines.append(f"{emoji} <b>{name}</b> هم پیدا کردی!")
         await message.reply_html("\n".join(lines))
     else:
         await message.reply_text("\n".join(lines))

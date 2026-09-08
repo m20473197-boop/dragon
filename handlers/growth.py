@@ -12,20 +12,17 @@ def build_level_up_text(result: XpResult) -> str:
 
     Example output::
 
-        🎉 اژدهای «رخش» Level Up شد!
-        ⭐ Level: ۲
-        ❤️ +۲۰ Max HP
-        🔥 +۵ Power
+        🎉 رخش 🔥 Lv.۲!
+
+        ❤️ +۲۰   ⚔️ +۵
     """
     blocks: list[str] = []
     emoji, _ = dragon_type_display(result.dragon.dragon_type)
     for event in result.level_ups:
         blocks.append(
-            f"🎉 اژدهای «{event.name}» Level Up شد!\n"
-            f"{emoji}\n"
-            f"⭐ Level: {to_fa(event.new_level)}\n"
-            f"❤️ +{to_fa(event.max_hp_gained)} Max HP\n"
-            f"🔥 +{to_fa(event.power_gained)} Power"
+            f"🎉 {event.name} {emoji} Lv.{to_fa(event.new_level)}!\n\n"
+            f"❤️ +{to_fa(event.max_hp_gained)}   "
+            f"⚔️ +{to_fa(event.power_gained)}"
         )
     return "\n\n".join(blocks)
 

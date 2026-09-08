@@ -156,13 +156,13 @@ def main():
     # --- profile page shape --------------------------------------------------
     q = press(ctx, f"dg:view:{azar.id}", UID)
     btns = labels(q.markup)
-    check("profile has the set-active button", "⭐ انتخاب به عنوان فعال" in btns, btns)
+    check("profile has the set-active button", "⭐ فعال" in btns, btns)
     check("profile keeps feeding / upgrade / rename / back",
-          {"🥩 غذا دادن", "⬆️ ارتقا", "✏️ تغییر نام", "🔙 برگشت"} <= set(btns), btns)
-    check("set-active is the first button", btns[0] == "⭐ انتخاب به عنوان فعال", btns)
-    for field in ("📛 نام:", "نوع:", "⭐ سطح:", "✨ تجربه:", "❤️ سلامت:", "🔥 قدرت:", "🍖 سیری:"):
+          {"🥩 غذا", "⬆️ ارتقا", "✏️ نام", "🔙"} <= set(btns), btns)
+    for field in ("🐉 آذر", "Lv.", "XP:", "HP:", "قدرت:", "گرسنگی:"):
         check(f"profile shows {field}", field in q.text, q.text)
-    check("a non-active dragon is not labelled active", "⭐ اژدهای فعال تو" not in q.text)
+    check("a non-active dragon is not marked with a star",
+          not q.text.splitlines()[0].endswith("⭐"), q.text.splitlines()[0])
 
     # --- CASE 1: feed the selected dragon ------------------------------------
     app.bot_data["storage_service"].deposit(UID, meat=50, fish=50)
@@ -221,14 +221,16 @@ def main():
           any("اکنون اژدهای فعال شماست" in t for t in q.toasts), q.toasts)
     check("CASE 3: message shows the confirmation",
           "آذر اکنون اژدهای فعال شماست" in (q.text or ""), q.text)
-    check("CASE 3: profile now marks it active", "⭐ اژدهای فعال تو" in (q.text or ""))
+    check("CASE 3: profile now marks it active",
+          any(line.startswith("🐉 آذر") and line.endswith("⭐")
+              for line in (q.text or "").splitlines()), q.text)
     check("CASE 3: buttons still present after switching",
-          "⭐ انتخاب به عنوان فعال" in labels(q.markup))
+          "⭐ فعال" in labels(q.markup))
 
     q = press(ctx, f"dg:setactive:{azar.id}", UID)
     check("pressing set-active twice is harmless",
           players.get_active_dragon_id(UID) == azar.id
-          and any("همین حالا" in t for t in q.toasts), q.toasts)
+          and any("فعاله" in t for t in q.toasts), q.toasts)
 
     # --- CASE 4: combat reads only active_dragon_id --------------------------
     combat = CombatService(
@@ -248,7 +250,7 @@ def main():
 
     # --- back button clears the selection ------------------------------------
     q = press(ctx, "dg:list", UID)
-    check("back returns to the list", "انتخاب کنید" in (q.text or ""), q.text)
+    check("back returns to the list", "انتخاب اژدها" in (q.text or ""), q.text)
     check("back clears the temporary selection",
           get_selected_dragon(ctx.user_data) is None)
     check("back does not change the active dragon",

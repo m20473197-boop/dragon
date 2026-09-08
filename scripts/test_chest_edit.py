@@ -150,7 +150,7 @@ def main():
     asyncio.run(text_router(u, ctx))
     check("«اژدها» replies", len(u.effective_message.replies) == 1)
     text, markup = u.effective_message.replies[0]
-    check("title is the required one", text == "🐉 اژدهای خود را انتخاب کنید:", text)
+    check("title is the required one", text == "🐉 انتخاب اژدها:", text)
     labels = [b.text for row in markup.inline_keyboard for b in row]
     check("one button per dragon", len(labels) == 3, labels)
     check("buttons show emoji + name",
@@ -163,7 +163,7 @@ def main():
     old = TxtUpd("اژدها های من", UID)
     asyncio.run(text_router(old, ctx))
     check("old command no longer opens the menu",
-          not any("انتخاب کنید" in t for t, _ in old.effective_message.replies),
+          not any("انتخاب اژدها" in t for t, _ in old.effective_message.replies),
           old.effective_message.replies)
 
     # selection / active-dragon systems untouched

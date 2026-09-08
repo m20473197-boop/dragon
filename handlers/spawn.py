@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 # Callback data looks like "claim_egg:42".
 CLAIM_PREFIX = "claim_egg:"
 
-SPAWN_TEXT = "🥚 یک تخم اژدهای ناشناخته پیدا شد!\nبرای نگهداری از اون روی دکمه بزن 👇"
-CLAIM_BUTTON_TEXT = "🥚 نگهداری از تخم"
+SPAWN_TEXT = "🥚 تخم اژدها پیدا شد!"
+CLAIM_BUTTON_TEXT = "🥚 نگهداری"
 
 
 def build_spawn_keyboard(egg_id: int) -> InlineKeyboardMarkup:
@@ -57,7 +57,7 @@ async def claim_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if claimed is not None:
             # This user won the race.
             emoji, name = egg_display(claimed.egg_type)
-            await _safe_answer(query, "🎉 تخم مال تو شد!")
+            await _safe_answer(query, "🎉 مال تو شد!")
 
             # Remove the button so nobody else can press it.
             try:
@@ -67,11 +67,7 @@ async def claim_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             chat_id = query.message.chat_id if query.message is not None else user.id
             mention = user.mention_html(user.full_name or f"کاربر {user.id}")
-            text = (
-                f"🎉 {mention} تخم رو برداشت!\n"
-                f"{emoji} نوع تخم: {name}\n"
-                "🫧 از تخم خوب مراقبت کن؛ وقتی زمانش برسه اژدها ازش بیرون میاد!"
-            )
+            text = f"🥚 {emoji} {name}\n\n👤 {mention}\n⏳ در حال پرورش..."
             try:
                 await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
             except (BadRequest, TelegramError):
@@ -81,10 +77,10 @@ async def claim_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         else:
             # Someone else won, or the egg expired.
             if current is not None and current.owner_id is not None:
-                await _safe_answer(query, "😔 یکی دیگه زودتر این تخم رو برداشته بود!", alert=True)
+                await _safe_answer(query, "😔 یکی زودتر برداشت!", alert=True)
             else:
-                await _safe_answer(query, "این تخم دیگه در دسترس نیست.", alert=True)
+                await _safe_answer(query, "⌛ منقضی شده.", alert=True)
     except Exception:
         # Never let an error leave the user's spinner hanging.
         logger.exception("Error while claiming egg %s", egg_id)
-        await _safe_answer(query, "خطایی پیش اومد؛ دوباره امتحان کن.", alert=True)
+        await _safe_answer(query, "❌ خطا! دوباره بزن.", alert=True)

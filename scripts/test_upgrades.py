@@ -91,14 +91,14 @@ def main() -> None:
     labels = [b_.text for row in kb.inline_keyboard for b_ in row]
     datas = [b_.callback_data for row in kb.inline_keyboard for b_ in row]
     assert len(labels) == 4
-    assert "افزایش سلامت" in labels[0] and "❤️" in labels[0]
-    assert "افزایش قدرت" in labels[1] and "🔥" in labels[1]
-    assert "افزایش سطح" in labels[2] and "⭐" in labels[2]
-    assert labels[3] == "🔙 برگشت"
+    assert "HP" in labels[0] and "❤️" in labels[0]
+    assert "قدرت" in labels[1] and "⚔️" in labels[1]
+    assert "سطح" in labels[2] and "⭐" in labels[2]
+    assert labels[3] == "🔙"
     assert all(f":{a.id}:" in d for d in datas[:3])      # bound to this dragon
     assert str(b.id) not in "".join(datas[:3])
     text = upgrade_menu_text(dragons.get(a.id), 1500)
-    assert "⬆️ ارتقای اژدها" in text and "ابسیدین" in text and "آذر" in text
+    assert "⬆️ ارتقا" in text and "🪨" in text and "آذر" in text
     print("✓ upgrade menu: ❤️ / 🔥 / ⭐ / 🔙 with obsidian prices")
 
     # 4. HP upgrade: costs obsidian, +20 max HP, no food touched.

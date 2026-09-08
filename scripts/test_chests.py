@@ -76,7 +76,7 @@ def main() -> None:
     # 4. The open button carries the chest id.
     kb = build_chest_keyboard(chest.id)
     button = kb.inline_keyboard[0][0]
-    assert button.text == "🎁 باز کردن صندوق"
+    assert button.text == "🎁 باز کردن"
     assert button.callback_data == f"{CHEST_PREFIX}{chest.id}"
     print("✓ chest message has the open button with its chest id")
 

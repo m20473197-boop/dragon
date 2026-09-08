@@ -22,25 +22,24 @@ async def fishing_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if not result.success:
         await message.reply_text(
-            "⏳ قلاب ماهیگیری‌ات هنوز آماده نیست!\n\n"
-            f"⌛ {format_remaining(result.cooldown_remaining)} دیگه صبر کن."
+            f"⏳ قلاب آماده نیست!\n\n⌛ {format_remaining(result.cooldown_remaining)}"
         )
         return
 
     lines = [
-        "🎣 ماهیگیری موفق!",
+        "🎣 صید موفق!",
         "",
-        f"🐟 {to_fa(result.fish_gained)} ماهی گرفتی",
+        f"🐟 +{to_fa(result.fish_gained)}",
     ]
     if created:
         lines.append("")
-        lines.append("🐉 به بازی اژدها خوش اومدی!")
+        lines.append("🐉 خوش اومدی!")
 
     if result.egg_found:
         egg = egg_service.create_found_egg(update.effective_chat.id, user.id)
         emoji, name = egg_display(egg.egg_type)
         lines.append("")
-        lines.append(f"{emoji} توی تورت یک <b>{name}</b> هم بود! مال تو شد و در حال پرورشه.")
+        lines.append(f"{emoji} <b>{name}</b> هم توی تور بود!")
         await message.reply_html("\n".join(lines))
     else:
         await message.reply_text("\n".join(lines))

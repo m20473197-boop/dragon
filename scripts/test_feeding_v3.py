@@ -109,10 +109,10 @@ def main() -> None:
     fkb = feed_keyboard(a.id)
     labels = [btn.text for row in fkb.inline_keyboard for btn in row]
     datas = [btn.callback_data for row in fkb.inline_keyboard for btn in row]
-    assert labels == ["🥩 یک غذا بده", "🍖 سیرش کن", "🔙 برگشت"]
+    assert labels == ["🥩 یک غذا", "🍖 سیر کن", "🔙"], labels
     assert f"{PREFIX}{ACTION_EAT_ONE}:{a.id}" in datas
     assert f"{PREFIX}{ACTION_EAT_FULL}:{a.id}" in datas
-    assert "🥩 غذا دادن" in [
+    assert "🥩 غذا" in [
         btn.text for row in profile_keyboard(a.id).inline_keyboard for btn in row
     ]
     print("✓ feeding menu reachable only from the selected dragon page")

@@ -41,6 +41,11 @@ from models.player import PlayerRepository  # noqa: E402
 RESULTS = []
 
 
+def enemy_name_in(text, result):
+    """The turn card must still name the enemy it is about."""
+    return result.enemy is not None and result.enemy.name in text
+
+
 def check(name, cond, extra=""):
     RESULTS.append(bool(cond))
     print(("✅" if cond else "❌"), name, extra if not cond else "")
@@ -124,7 +129,7 @@ def main():
 
     text = battle_ui.start_text(d1.name, res.enemy)
     check("start message has the required lines",
-          "⚔️ نبرد شروع شد!" in text and "VS" in text and "Enemy HP:" in text, text)
+          "⚔️ نبرد شروع شد!" in text and "VS" in text and "❤️" in text, text)
     kb = battle_ui.battle_keyboard(b1)
     labels = [b.text for row in kb.inline_keyboard for b in row]
     check("battle has attack and flee buttons", labels == ["⚔️ حمله", "🏃 فرار"], labels)
@@ -185,7 +190,7 @@ def main():
         check("dragon lost hp", dragons.get(d1.id).hp < 100)
         t = battle_ui.turn_text(r)
         check("turn message has the required lines",
-              "⚔️ نتیجه حمله:" in t and "🔥 Damage:" in t and "❤️ HP:" in t, t)
+              "⚔️" in t and "❤️" in t and enemy_name_in(t, r), t)
 
     # --- 8. fight to the death: enemy dies, rewards are paid ---------------
     strong = make_player_with_dragon(players, dragons, 3001, power=500, hp=100, max_hp=100)
@@ -210,7 +215,7 @@ def main():
     check("reward snapshot saved in the database",
           battles.get(bid).reward_dict().get("obsidian") == win.obsidian)
     vt = battle_ui.victory_text(win)
-    check("victory message is correct", "🎉 پیروزی!" in vt and "Rewards:" in vt, vt)
+    check("victory message is correct", "🎉 پیروزی!" in vt and "🪨 +" in vt, vt)
     check("winner keeps hp (enemy never struck back)", win.dragon_hp_after > 0)
 
     # buttons after the battle ended

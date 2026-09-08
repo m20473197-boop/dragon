@@ -57,15 +57,11 @@ ACTION_UPGRADE_DO = "updo"    # dg:updo:<dragon_id>:<key>  -> apply upgrade
 ACTION_RENAME = "rename"
 ACTION_SET_ACTIVE = "setactive"  # dg:setactive:<dragon_id> -> make it the active dragon
 
-SELECT_TITLE = "🐉 اژدهای خود را انتخاب کنید:"
-NO_DRAGONS_TEXT = (
-    "🐉 هنوز اژدهایی نداری!\n"
-    "تخم اژدهاها رو توی گروه پیدا کن و ازشون نگهداری کن؛ وقتی زمانش برسه "
-    "اژدهای خودت از تخم بیرون میاد. 🥚"
-)
-FULL_TEXT = "🐉 اژدهای تو سیر است!"
-BTN_SET_ACTIVE = "⭐ انتخاب به عنوان فعال"
-ALREADY_ACTIVE_TEXT = "⭐ این اژدها همین حالا اژدهای فعال توئه."
+SELECT_TITLE = "🐉 انتخاب اژدها:"
+NO_DRAGONS_TEXT = "🐉 اژدهایی نداری!\n\n🥚 توی گروه تخم پیدا کن."
+FULL_TEXT = "🍖 سیره!"
+BTN_SET_ACTIVE = "⭐ فعال"
+ALREADY_ACTIVE_TEXT = "⭐ همین الان فعاله."
 
 
 # --- keyboards --------------------------------------------------------------
@@ -99,13 +95,7 @@ def profile_keyboard(dragon_id: int) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    BTN_SET_ACTIVE,
-                    callback_data=f"{PREFIX}{ACTION_SET_ACTIVE}:{dragon_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "🥩 غذا دادن", callback_data=f"{PREFIX}{ACTION_FEED}:{dragon_id}"
+                    "🥩 غذا", callback_data=f"{PREFIX}{ACTION_FEED}:{dragon_id}"
                 ),
                 InlineKeyboardButton(
                     "⬆️ ارتقا", callback_data=f"{PREFIX}{ACTION_UPGRADE}:{dragon_id}"
@@ -113,11 +103,15 @@ def profile_keyboard(dragon_id: int) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    "✏️ تغییر نام", callback_data=f"{PREFIX}{ACTION_RENAME}:{dragon_id}"
+                    "✏️ نام", callback_data=f"{PREFIX}{ACTION_RENAME}:{dragon_id}"
                 ),
                 InlineKeyboardButton(
-                    "🔙 برگشت", callback_data=f"{PREFIX}{ACTION_LIST}"
+                    BTN_SET_ACTIVE,
+                    callback_data=f"{PREFIX}{ACTION_SET_ACTIVE}:{dragon_id}",
                 ),
+            ],
+            [
+                InlineKeyboardButton("🔙", callback_data=f"{PREFIX}{ACTION_LIST}"),
             ],
         ]
     )
@@ -129,19 +123,17 @@ def feed_keyboard(dragon_id: int) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    "🥩 یک غذا بده",
+                    "🥩 یک غذا",
                     callback_data=f"{PREFIX}{ACTION_EAT_ONE}:{dragon_id}",
-                )
-            ],
-            [
+                ),
                 InlineKeyboardButton(
-                    "🍖 سیرش کن",
+                    "🍖 سیر کن",
                     callback_data=f"{PREFIX}{ACTION_EAT_FULL}:{dragon_id}",
-                )
+                ),
             ],
             [
                 InlineKeyboardButton(
-                    "🔙 برگشت", callback_data=f"{PREFIX}{ACTION_VIEW}:{dragon_id}"
+                    "🔙", callback_data=f"{PREFIX}{ACTION_VIEW}:{dragon_id}"
                 )
             ],
         ]
@@ -153,53 +145,59 @@ def upgrade_keyboard(dragon_id: int) -> InlineKeyboardMarkup:
     rows = [
         [
             InlineKeyboardButton(
-                f"{spec['emoji']} {spec['name']} — 🪨 {to_fa(spec['cost_obsidian'])}",
+                f"{spec['emoji']} {spec['short']} 🪨 {to_fa(spec['cost_obsidian'])}",
                 callback_data=f"{PREFIX}{ACTION_UPGRADE_DO}:{dragon_id}:{key}",
             )
         ]
         for key, spec in UPGRADES.items()
     ]
     rows.append(
-        [InlineKeyboardButton("🔙 برگشت", callback_data=f"{PREFIX}{ACTION_VIEW}:{dragon_id}")]
+        [InlineKeyboardButton("🔙", callback_data=f"{PREFIX}{ACTION_VIEW}:{dragon_id}")]
     )
     return InlineKeyboardMarkup(rows)
 
 
 # --- texts ------------------------------------------------------------------
 def profile_text(dragon, now: float | None = None, is_active: bool = False) -> str:
-    """Render the dragon profile page.
+    """Compact mobile-game style dragon card.
 
-    ``is_active`` only adds an informational line; it never changes anything.
+    Example::
+
+        🐉 آذر 🔥 ⭐
+
+        ⭐ Lv.۵
+        ✨ XP: ۲۵۰/۵۰۰
+
+        ❤️ HP: ۱۸۰/۲۰۰
+        ⚔️ قدرت: ۴۵
+        🍖 گرسنگی: ۷۰٪
     """
     now = now if now is not None else time.time()
-    emoji, type_name = dragon_type_display(dragon.dragon_type)
+    emoji, _ = dragon_type_display(dragon.dragon_type)
     hunger = current_hunger(dragon, now)
     power = effective_power(dragon.power, hunger)
 
+    # A hungry dragon fights weaker — show it inline instead of a paragraph.
     if hunger < HUNGER_LOW_THRESHOLD:
-        hunger_line = f"🍖 سیری: {to_fa(hunger)}٪ (گرسنه!)"
-        power_line = f"🔥 قدرت: {to_fa(power)} (از {to_fa(dragon.power)})"
+        power_line = f"⚔️ قدرت: {to_fa(power)} ⚠️"
+        hunger_line = f"🍖 گرسنگی: {to_fa(hunger)}٪ ⚠️"
     else:
-        hunger_line = f"🍖 سیری: {to_fa(hunger)}٪"
-        power_line = f"🔥 قدرت: {to_fa(dragon.power)}"
+        power_line = f"⚔️ قدرت: {to_fa(dragon.power)}"
+        hunger_line = f"🍖 گرسنگی: {to_fa(hunger)}٪"
 
-    lines = [
-            "🐉 مشخصات اژدها",
+    star = " ⭐" if is_active else ""
+    return "\n".join(
+        [
+            f"🐉 {dragon.name} {emoji}{star}",
             "",
-            f"📛 نام: {dragon.name}",
-            f"{emoji} نوع: {type_name}",
+            f"⭐ Lv.{to_fa(dragon.level)}",
+            f"✨ XP: {to_fa(dragon.xp)}/{to_fa(dragon.xp_required_for_next_level())}",
             "",
-            f"⭐ سطح: {to_fa(dragon.level)}",
-            f"✨ تجربه: {to_fa(dragon.xp)} / {to_fa(dragon.xp_required_for_next_level())}",
-            "",
-            f"❤️ سلامت: {to_fa(dragon.hp)} / {to_fa(dragon.max_hp)}",
+            f"❤️ HP: {to_fa(dragon.hp)}/{to_fa(dragon.max_hp)}",
             power_line,
-            "",
             hunger_line,
-    ]
-    if is_active:
-        lines += ["", "⭐ اژدهای فعال تو"]
-    return "\n".join(lines)
+        ]
+    )
 
 
 def feed_menu_text(dragon, meat: int, fish: int, now: float | None = None) -> str:
@@ -208,43 +206,45 @@ def feed_menu_text(dragon, meat: int, fish: int, now: float | None = None) -> st
         [
             f"🥩 غذا دادن به {dragon.name}",
             "",
-            f"🍖 سیری فعلی: {to_fa(hunger)}٪",
+            f"🍖 گرسنگی: {to_fa(hunger)}٪",
             "",
-            "❄️ سردخانه:",
-            f"🥩 گوشت: {to_fa(meat)}",
-            f"🐟 ماهی: {to_fa(fish)}",
+            f"🥩 {to_fa(meat)}   🐟 {to_fa(fish)}",
         ]
     )
 
 
 def upgrade_menu_text(dragon, obsidian: int) -> str:
-    """The upgrade menu for one dragon; every price is in 🪨 obsidian."""
-    lines = [
-        "⬆️ ارتقای اژدها",
-        "",
-        f"🐉 {dragon.name}",
-        f"⭐ سطح: {to_fa(dragon.level)}   ❤️ سلامت: {to_fa(dragon.max_hp)}   "
-        f"🔥 قدرت: {to_fa(dragon.power)}",
-        "",
-        "یک ارتقا انتخاب کن:",
-    ]
+    """Compact upgrade card; every price is in 🪨 obsidian.
+
+    Example::
+
+        ⬆️ ارتقا آذر
+
+        ❤️ HP +۲۰
+        ⚔️ قدرت +۵
+        ⭐ سطح +۱
+
+        🪨 ۵۰۰ / ۷۰۰ / ۱۰۰۰
+        💰 ۱۲۰۰
+    """
+    lines = [f"⬆️ ارتقا {dragon.name}", ""]
     for spec in UPGRADES.values():
         lines.append(
-            f"{spec['emoji']} {spec['name']} (+{to_fa(spec['amount'])}) — "
-            f"🪨 {to_fa(spec['cost_obsidian'])} ابسیدین"
+            f"{spec['emoji']} {spec['short']} +{to_fa(spec['amount'])} — "
+            f"🪨 {to_fa(spec['cost_obsidian'])}"
         )
-    lines += ["", f"💰 موجودی تو: 🪨 {to_fa(obsidian)} ابسیدین"]
+    lines += ["", f"💰 {to_fa(obsidian)} 🪨"]
     return "\n".join(lines)
 
 
 def _food_report(spent: dict) -> str:
-    """«۳ گوشت و ۲ ماهی مصرف شد.» from a {food_key: units} mapping."""
+    """«🥩 -۳   🐟 -۲» from a {food_key: units} mapping."""
     parts = [
-        f"{FOODS[key]['emoji']} {to_fa(units)} {FOODS[key]['name']}"
+        f"{FOODS[key]['emoji']} -{to_fa(units)}"
         for key, units in spent.items()
         if units
     ]
-    return " و ".join(parts)
+    return "   ".join(parts)
 
 
 # --- command ----------------------------------------------------------------
@@ -287,7 +287,7 @@ async def dragon_manage_callback(update: Update, context: ContextTypes.DEFAULT_T
         dragon_id = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
         dragon = _owned_dragon(context, dragon_id, user_id)
         if dragon is None:
-            await _answer(query, "این اژدها مال تو نیست.", alert=True)
+            await _answer(query, "⛔ مال تو نیست!", alert=True)
             return
 
         if action == ACTION_VIEW:
@@ -336,7 +336,7 @@ async def _set_active(query, context, dragon, user_id: int) -> None:
         return
 
     if not players.set_active_dragon(user_id, dragon.id):
-        await _answer(query, "این اژدها مال تو نیست.", alert=True)
+        await _answer(query, "⛔ مال تو نیست!", alert=True)
         return
 
     await _answer(query, f"⭐ {dragon.name} اکنون اژدهای فعال شماست.", alert=True)
@@ -374,22 +374,20 @@ async def _feed_one(query, context, dragon, user_id: int) -> None:
         return
 
     lines = [
-        f"🐉 {result.dragon.name} غذا خورد!",
+        f"🍖 {result.dragon.name} غذا خورد!",
         "",
-        f"{FOODS[result.food_key]['emoji']} ۱ {FOODS[result.food_key]['name']} مصرف شد.",
-        "",
-        "🍖 Hunger:",
-        f"{to_fa(result.hunger_before)}٪ → {to_fa(result.hunger_after)}٪",
+        f"{FOODS[result.food_key]['emoji']} -۱",
+        f"🍖 {to_fa(result.hunger_before)}٪ → {to_fa(result.hunger_after)}٪",
     ]
     if result.hp_healed > 0:
-        lines.append(f"❤️ سلامت +{to_fa(result.hp_healed)}")
+        lines.append(f"❤️ +{to_fa(result.hp_healed)}")
     if result.xp_added > 0:
-        lines.append(f"✨ تجربه +{to_fa(result.xp_added)}")
+        lines.append(f"✨ +{to_fa(result.xp_added)}")
     if result.levels_gained > 0:
-        lines.append(f"🎉 Level Up! سطح {to_fa(result.dragon.level)}")
+        lines.append(f"🎉 Lv.{to_fa(result.dragon.level)}!")
 
     meat, fish = _storage(context, user_id)
-    lines += ["", f"❄️ سردخانه: 🥩 {to_fa(meat)} | 🐟 {to_fa(fish)}"]
+    lines += ["", f"🥩 {to_fa(meat)}   🐟 {to_fa(fish)}"]
 
     await _answer(query)
     await _edit(query, "\n".join(lines), feed_keyboard(result.dragon.id))
@@ -403,25 +401,22 @@ async def _feed_full(query, context, dragon, user_id: int) -> None:
         return
 
     lines = [
-        f"🐉 {result.dragon.name} سیر شد!",
+        f"🍖 {result.dragon.name} سیر شد!",
         "",
-        f"{_food_report(result.spent)} مصرف شد.",
-        "",
-        "🍖 Hunger:",
-        f"{to_fa(result.hunger_before)}٪ → {to_fa(result.hunger_after)}٪",
+        _food_report(result.spent),
+        f"🍖 {to_fa(result.hunger_before)}٪ → {to_fa(result.hunger_after)}٪",
     ]
     if result.hunger_after < 100:
-        lines.append("")
-        lines.append("❄️ سردخانه خالی شد؛ بیشتر از این نشد سیرش کرد.")
+        lines.append("❄️ سردخانه خالی شد!")
     if result.hp_healed > 0:
-        lines.append(f"❤️ سلامت +{to_fa(result.hp_healed)}")
+        lines.append(f"❤️ +{to_fa(result.hp_healed)}")
     if result.xp_added > 0:
-        lines.append(f"✨ تجربه +{to_fa(result.xp_added)}")
+        lines.append(f"✨ +{to_fa(result.xp_added)}")
     if result.levels_gained > 0:
-        lines.append(f"🎉 Level Up! سطح {to_fa(result.dragon.level)}")
+        lines.append(f"🎉 Lv.{to_fa(result.dragon.level)}!")
 
     meat, fish = _storage(context, user_id)
-    lines += ["", f"❄️ سردخانه: 🥩 {to_fa(meat)} | 🐟 {to_fa(fish)}"]
+    lines += ["", f"🥩 {to_fa(meat)}   🐟 {to_fa(fish)}"]
 
     await _answer(query)
     await _edit(query, "\n".join(lines), feed_keyboard(result.dragon.id))
@@ -434,11 +429,11 @@ async def _feed_failure(query, context, dragon, user_id: int, reason: str) -> No
     if reason == "no_food":
         await _answer(
             query,
-            "❄️ سردخانه‌ات خالیه! با «شکار» و «ماهیگیری» غذا جمع کن.",
+            "❄️ سردخانه خالیه!",
             alert=True,
         )
         return
-    await _answer(query, "این اژدها مال تو نیست.", alert=True)
+    await _answer(query, "⛔ مال تو نیست!", alert=True)
 
 
 async def _show_upgrades(query, context, dragon, user_id: int) -> None:
@@ -459,32 +454,31 @@ async def _apply_upgrade(query, context, dragon, user_id: int, key: str) -> None
         if result.reason == "not_enough":
             await _answer(
                 query,
-                f"🪨 ابسیدین کافی نداری! {to_fa(result.missing)} تای دیگه لازمه.",
+                f"🪨 کم داری! {to_fa(result.missing)} تای دیگه لازمه.",
                 alert=True,
             )
         elif result.reason == "unknown":
-            await _answer(query, "این ارتقا در دسترس نیست.", alert=True)
+            await _answer(query, "🚧 در دسترس نیست.", alert=True)
         else:
-            await _answer(query, "این اژدها مال تو نیست.", alert=True)
+            await _answer(query, "⛔ مال تو نیست!", alert=True)
         return
 
-    spec = UPGRADES[key]
-    gains = "، ".join(
+    gains = "   ".join(
         {
-            "max_hp": f"❤️ حداکثر سلامت +{to_fa(v)}",
-            "power": f"🔥 قدرت +{to_fa(v)}",
-            "level": f"⭐ سطح +{to_fa(v)}",
+            "max_hp": f"❤️ +{to_fa(v)}",
+            "power": f"⚔️ +{to_fa(v)}",
+            "level": f"⭐ +{to_fa(v)}",
         }[stat]
         for stat, v in result.gains.items()
     )
+    active_id = context.bot_data["player_repo"].get_active_dragon_id(user_id)
     lines = [
-        f"{spec['emoji']} «{result.dragon.name}» ارتقا پیدا کرد!",
+        "✅ ارتقا شد!",
         "",
         gains,
-        f"💸 هزینه: 🪨 {to_fa(result.spent)} ابسیدین",
-        f"💰 موجودی جدید: 🪨 {to_fa(result.balance)} ابسیدین",
+        f"🪨 -{to_fa(result.spent)}   💰 {to_fa(result.balance)}",
         "",
-        profile_text(result.dragon),
+        profile_text(result.dragon, is_active=(active_id == result.dragon.id)),
     ]
     await _answer(query)
     await _edit(query, "\n".join(lines), profile_keyboard(result.dragon.id))
@@ -502,8 +496,7 @@ async def _start_rename(query, context, dragon) -> None:
     await _answer(query)
     await _edit(
         query,
-        f"✏️ نام تازه‌ی «{dragon.name}» رو بفرست.\n\n"
-        "برای لغو، یکی از دستورهای بازی رو بفرست.",
+        f"✏️ نام جدید {dragon.name} رو بفرست:",
         profile_keyboard(dragon.id),
     )
 

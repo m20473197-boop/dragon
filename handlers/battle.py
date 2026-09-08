@@ -32,12 +32,12 @@ BTN_ATTACK = "⚔️ حمله"
 BTN_FLEE = "🏃 فرار"
 
 MSG_NO_DRAGON = "🐉 ابتدا یک اژدها را انتخاب کنید."
-MSG_ALREADY_FIGHTING = "⚔️ تو همین الان درگیر یک نبرد هستی! اول اون رو تموم کن."
-MSG_TOO_WEAK = "😮‍💨 اژدهای تو خیلی ضعیفه و باید استراحت کنه. اول غذاش بده."
-MSG_ERROR = "❌ خطایی پیش اومد؛ دوباره امتحان کن."
-MSG_NOT_YOURS = "⛔ این نبرد مال تو نیست!"
-MSG_FINISHED = "این نبرد تموم شده."
-MSG_NOT_FOUND = "این نبرد پیدا نشد."
+MSG_ALREADY_FIGHTING = "⚔️ درگیر نبردی!"
+MSG_TOO_WEAK = "😮‍💨 ضعیفه! غذاش بده."
+MSG_ERROR = "❌ خطا! دوباره بزن."
+MSG_NOT_YOURS = "⛔ نبرد تو نیست!"
+MSG_FINISHED = "⌛ تموم شده."
+MSG_NOT_FOUND = "🚧 پیدا نشد."
 
 
 # --- keyboards --------------------------------------------------------------
@@ -71,7 +71,6 @@ def start_text(dragon_name: str, enemy: Enemy) -> str:
         f"🐉 {dragon_name}\n"
         "VS\n"
         f"{enemy.emoji} {enemy.name}\n\n"
-        "Enemy HP:\n"
         f"❤️ {to_fa(enemy.hp)}/{to_fa(enemy.max_hp)}\n"
         f"{hp_bar(enemy.hp, enemy.max_hp)}"
     )
@@ -82,20 +81,17 @@ def turn_text(result) -> str:
     dragon = result.dragon
     enemy = result.enemy
     lines = [
-        "⚔️ نتیجه حمله:",
+        f"🐉 {dragon.name} ⚔️ {to_fa(result.dragon_damage)}",
         "",
-        f"🐉 {dragon.name}:",
-        f"🔥 Damage: {to_fa(result.dragon_damage)}",
-        "",
-        f"{enemy.emoji} {enemy.name}:",
-        f"❤️ HP: {to_fa(result.enemy_hp_after)}/{to_fa(enemy.max_hp)}",
+        f"{enemy.emoji} {enemy.name}",
+        f"❤️ {to_fa(result.enemy_hp_after)}/{to_fa(enemy.max_hp)}",
         hp_bar(result.enemy_hp_after, enemy.max_hp),
     ]
     if result.enemy_damage:
         lines += [
             "",
-            f"{enemy.emoji} حمله‌ی دشمن: 💥 {to_fa(result.enemy_damage)}",
-            f"🐉 {dragon.name}: ❤️ {to_fa(result.dragon_hp_after)}/{to_fa(dragon.max_hp)}",
+            f"{enemy.emoji} 💥 {to_fa(result.enemy_damage)}",
+            f"🐉 ❤️ {to_fa(result.dragon_hp_after)}/{to_fa(dragon.max_hp)}",
             hp_bar(result.dragon_hp_after, dragon.max_hp),
         ]
     return "\n".join(lines)
@@ -107,25 +103,21 @@ def victory_text(result) -> str:
     lines = [
         "🎉 پیروزی!",
         "",
-        f"🐉 {dragon.name} دشمن را شکست داد.",
-        f"{enemy.emoji} {enemy.name} از پا درآمد!",
+        f"{enemy.emoji} {enemy.name} شکست خورد",
         "",
-        "Rewards:",
     ]
     if result.xp_gained:
-        lines.append(f"⭐ {to_fa(result.xp_gained)} تجربه")
+        lines.append(f"✨ +{to_fa(result.xp_gained)} XP")
     if result.obsidian:
-        lines.append(f"🪨 {to_fa(result.obsidian)} ابسیدین")
+        lines.append(f"🪨 +{to_fa(result.obsidian)}")
     if result.aether:
-        lines.append(f"✨ {to_fa(result.aether)} اتر")
+        lines.append(f"✨ +{to_fa(result.aether)} اتر")
     for event in result.level_ups:
         lines.append(
-            f"\n🎊 لِوِل آپ! سطح {to_fa(event.new_level)} "
-            f"(+{to_fa(event.max_hp_gained)} سلامت، +{to_fa(event.power_gained)} قدرت)"
+            f"🎊 Lv.{to_fa(event.new_level)}!   "
+            f"❤️ +{to_fa(event.max_hp_gained)}   ⚔️ +{to_fa(event.power_gained)}"
         )
-    lines.append(
-        f"\n🐉 {dragon.name}: ❤️ {to_fa(dragon.hp)}/{to_fa(dragon.max_hp)}"
-    )
+    lines.append(f"\n🐉 ❤️ {to_fa(dragon.hp)}/{to_fa(dragon.max_hp)}")
     return "\n".join(lines)
 
 
@@ -135,9 +127,9 @@ def defeat_text(result) -> str:
     return (
         "💀 شکست خوردی!\n\n"
         f"🐉 {dragon.name} needs rest.\n"
-        f"{enemy.emoji} {enemy.name} این بار قوی‌تر بود.\n\n"
-        f"❤️ {to_fa(dragon.hp)}/{to_fa(dragon.max_hp)}\n"
-        "اژدهات از بین نرفته، فقط ضعیف شده. غذاش بده تا دوباره قوی بشه."
+        f"{enemy.emoji} {enemy.name} قوی‌تر بود\n\n"
+        f"❤️ {to_fa(dragon.hp)}/{to_fa(dragon.max_hp)}\n\n"
+        "🥩 غذاش بده!"
     )
 
 
@@ -145,8 +137,8 @@ def flee_text(dragon_name: str, enemy: Enemy | None) -> str:
     enemy_label = f"{enemy.emoji} {enemy.name}" if enemy is not None else "دشمن"
     return (
         "🏃 فرار کردی!\n\n"
-        f"🐉 {dragon_name} از {enemy_label} فرار کرد.\n"
-        "هیچ جایزه‌ای نگرفتی."
+        f"🐉 {dragon_name} از {enemy_label} فرار کرد\n\n"
+        "🚫 بدون جایزه"
     )
 
 

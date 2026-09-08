@@ -32,8 +32,8 @@ SEND_CONNECT_TIMEOUT = 15.0
 SEND_POOL_TIMEOUT = 15.0
 SEND_RETRIES = 2
 
-CHEST_TEXT = "🎁 یک صندوق مرموز پیدا شد!\nبرای باز کردنش روی دکمه بزن 👇"
-CHEST_BUTTON_TEXT = "🎁 باز کردن صندوق"
+CHEST_TEXT = "🎁 صندوق مرموز پیدا شد!"
+CHEST_BUTTON_TEXT = "🎁 باز کردن"
 
 
 def build_chest_keyboard(chest_id: int) -> InlineKeyboardMarkup:
@@ -221,11 +221,11 @@ async def open_chest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         if not result.success:
             if result.reason == "already_opened":
-                await _safe_answer(query, "😔 یکی دیگه زودتر این صندوق رو باز کرده بود!", alert=True)
+                await _safe_answer(query, "😔 یکی زودتر باز کرد!", alert=True)
             elif result.reason == "expired":
-                await _safe_answer(query, "این صندوق دیگه در دسترس نیست.", alert=True)
+                await _safe_answer(query, "⌛ منقضی شده.", alert=True)
             else:
-                await _safe_answer(query, "این صندوق پیدا نشد.", alert=True)
+                await _safe_answer(query, "🚧 پیدا نشد.", alert=True)
             # Make sure a dead chest keeps no clickable button.
             try:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -233,7 +233,7 @@ async def open_chest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 pass
             return
 
-        await _safe_answer(query, "🎁 صندوق مال تو شد!")
+        await _safe_answer(query, "🎁 مال تو شد!")
 
         # Edit the ORIGINAL chest message into the result and drop its button,
         # rather than sending a new message.
@@ -242,4 +242,4 @@ async def open_chest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await _edit_chest_message(context, query, chest_id, text, chest=result.chest)
     except Exception:
         logger.exception("Error while opening chest %s", chest_id)
-        await _safe_answer(query, "خطایی پیش اومد؛ دوباره امتحان کن.", alert=True)
+        await _safe_answer(query, "❌ خطا! دوباره بزن.", alert=True)

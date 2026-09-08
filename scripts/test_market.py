@@ -59,18 +59,18 @@ def main() -> None:
 
     # 1. The market screen offers the three categories and a back button.
     labels = [b.text for row in categories_keyboard().inline_keyboard for b in row]
-    assert labels == ["🥩 غذا", "🥚 تخم اژدها", "✨ آیتم‌های ویژه", "🔙 برگشت"], labels
-    assert "🏪 بازار اژدها" in market_text(0)
+    assert labels == ["🥩 غذا", "🥚 تخم", "✨ ویژه", "🔙"], labels
+    assert "🏪 بازار" in market_text(0)
     assert set(MARKET_CATEGORIES) == {"food", "eggs", "special"}
     print("✓ «بازار» shows the three categories + back button")
 
     # 2. Food shop lists meat and fish with prices and buy buttons.
     food_btns = [b for row in category_keyboard("food").inline_keyboard for b in row]
     assert len(food_btns) == 3           # meat, fish, back
-    assert all("خرید" in b.text for b in food_btns[:2])
+    assert all("🪨" in b.text for b in food_btns[:2])
     assert food_btns[0].callback_data == f"{PREFIX}buy:food:meat"
     text = category_text("food", 100)
-    assert "گوشت" in text and "ماهی" in text and "ابسیدین" in text
+    assert "گوشت" in text and "ماهی" in text and "🪨" in text
     print("✓ food shop lists 🥩/🐟 with obsidian prices and buy buttons")
 
     # 3. Buying food: obsidian removed, food into cold storage.
@@ -84,7 +84,7 @@ def main() -> None:
     assert after.fish == before.fish                       # only what was bought
     assert players.get(BUYER).obsidian == 1000 - meat_item["price"]
     assert res.balance == players.get(BUYER).obsidian
-    assert "✅ خرید انجام شد!" in purchase_text(res)
+    assert "✅ خرید شد!" in purchase_text(res)
     print(f"✓ bought {meat_item['amount']} meat for {meat_item['price']} obsidian -> cold storage")
 
     # 4. Fish works the same and spends only obsidian (aether untouched).
@@ -162,7 +162,7 @@ def main() -> None:
     # 9. Special items category exists but is empty (reserved for the future).
     assert MARKET_ITEMS["special"] == {}
     special_btns = [b for row in category_keyboard("special").inline_keyboard for b in row]
-    assert len(special_btns) == 1 and special_btns[0].text == "🔙 برگشت"
+    assert len(special_btns) == 1 and special_btns[0].text == "🔙"
     assert "هنوز آیتمی اینجا نیست" in category_text("special", 0)
     print("✓ special items category is present but empty")
 

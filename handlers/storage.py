@@ -27,11 +27,9 @@ async def storage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     aether = player.aether if player else 0
 
     text = (
-        "❄️ سردخانه من\n\n"
+        "❄️ سردخانه\n\n"
         f"🥩 گوشت: {to_fa(contents.meat)}\n"
         f"🐟 ماهی: {to_fa(contents.fish)}\n\n"
-        "💰 دارایی\n"
-        f"🪨 ابسیدین: {to_fa(obsidian)}\n"
-        f"✨ اتر: {to_fa(aether)}"
+        f"🪨 {to_fa(obsidian)}   ✨ {to_fa(aether)}"
     )
     await message.reply_text(text)

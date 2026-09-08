@@ -130,6 +130,7 @@ FULL_FEED_MAX_UNITS: int = 50
 UPGRADES: dict[str, dict] = {
     "hp": {
         "name": "افزایش سلامت",
+        "short": "HP",          # compact button label
         "emoji": "❤️",
         "stat": "max_hp",
         "amount": 20,
@@ -138,7 +139,8 @@ UPGRADES: dict[str, dict] = {
     },
     "power": {
         "name": "افزایش قدرت",
-        "emoji": "🔥",
+        "short": "قدرت",        # compact button label
+        "emoji": "⚔️",
         "stat": "power",
         "amount": 5,
         "cost_obsidian": 700,
@@ -146,6 +148,7 @@ UPGRADES: dict[str, dict] = {
     },
     "level": {
         "name": "افزایش سطح",
+        "short": "سطح",         # compact button label
         "emoji": "⭐",
         "stat": "level",
         "amount": 1,
@@ -230,10 +233,11 @@ MARKET_ITEMS: dict[str, dict] = {
     "special": {},
 }
 
+# 'short' is the compact button label; 'name' is the page title.
 MARKET_CATEGORIES: dict[str, dict] = {
-    "food":    {"name": "غذا", "emoji": "🥩"},
-    "eggs":    {"name": "تخم اژدها", "emoji": "🥚"},
-    "special": {"name": "آیتم‌های ویژه", "emoji": "✨"},
+    "food":    {"name": "غذا", "short": "غذا", "emoji": "🥩"},
+    "eggs":    {"name": "تخم اژدها", "short": "تخم", "emoji": "🥚"},
+    "special": {"name": "آیتم‌های ویژه", "short": "ویژه", "emoji": "✨"},
 }
 
 # --- Egg spawning in groups -------------------------------------------------

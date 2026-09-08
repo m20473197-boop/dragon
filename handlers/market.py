@@ -32,7 +32,7 @@ ACTION_HOME = "home"
 ACTION_CATEGORY = "cat"
 ACTION_BUY = "buy"
 
-MARKET_TITLE = "🏪 بازار اژدها"
+MARKET_TITLE = "🏪 بازار"
 CURRENCY = "🪨"
 
 
@@ -41,14 +41,14 @@ def categories_keyboard() -> InlineKeyboardMarkup:
     rows = [
         [
             InlineKeyboardButton(
-                f"{spec['emoji']} {spec['name']}",
+                f"{spec['emoji']} {spec['short']}",
                 callback_data=f"{PREFIX}{ACTION_CATEGORY}:{key}",
             )
         ]
         for key, spec in MARKET_CATEGORIES.items()
     ]
-    # «🔙 برگشت» closes the market back to its main screen.
-    rows.append([InlineKeyboardButton("🔙 برگشت", callback_data=f"{PREFIX}{ACTION_HOME}")])
+    # «🔙» closes the market back to its main screen.
+    rows.append([InlineKeyboardButton("🔙", callback_data=f"{PREFIX}{ACTION_HOME}")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -59,12 +59,12 @@ def category_keyboard(category: str) -> InlineKeyboardMarkup:
         rows.append(
             [
                 InlineKeyboardButton(
-                    f"{item['emoji']} {item['name']} — {CURRENCY} {to_fa(item['price'])} | خرید",
+                    f"{item['emoji']} {item['name']} 🪨 {to_fa(item['price'])}",
                     callback_data=f"{PREFIX}{ACTION_BUY}:{category}:{item_key}",
                 )
             ]
         )
-    rows.append([InlineKeyboardButton("🔙 برگشت", callback_data=f"{PREFIX}{ACTION_HOME}")])
+    rows.append([InlineKeyboardButton("🔙", callback_data=f"{PREFIX}{ACTION_HOME}")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -72,8 +72,8 @@ def category_keyboard(category: str) -> InlineKeyboardMarkup:
 def market_text(balance: int) -> str:
     return (
         f"{MARKET_TITLE}\n\n"
-        f"💰 موجودی تو: {CURRENCY} {to_fa(balance)} ابسیدین\n\n"
-        "یک دسته رو انتخاب کن:"
+        f"💰 {to_fa(balance)} 🪨\n\n"
+        "انتخاب کن:"
     )
 
 
@@ -88,15 +88,12 @@ def category_text(category: str, balance: int) -> str:
     else:
         for item in items.values():
             amount = item.get("amount", 1)
-            unit = f" ({to_fa(amount)} عدد)" if amount > 1 else ""
+            unit = f" ×{to_fa(amount)}" if amount > 1 else ""
             lines.append(
-                f"{item['emoji']} {item['name']}{unit}\n"
-                f"   قیمت: {CURRENCY} {to_fa(item['price'])} ابسیدین"
+                f"{item['emoji']} {item['name']}{unit} — 🪨 {to_fa(item['price'])}"
             )
-        lines.append("")
-        lines.append("برای خرید روی دکمه‌ی همون آیتم بزن 👇")
 
-    lines += ["", f"💰 موجودی تو: {CURRENCY} {to_fa(balance)} ابسیدین"]
+    lines += ["", f"💰 {to_fa(balance)} 🪨"]
     return "\n".join(lines)
 
 
@@ -104,17 +101,14 @@ def purchase_text(result) -> str:
     """Success message for a completed purchase."""
     item = result.item
     if item["kind"] == "food":
-        got = f"{item['emoji']} {to_fa(result.amount)} {item['name']} به سردخانه‌ات اضافه شد."
+        got = f"{item['emoji']} +{to_fa(result.amount)} {item['name']}"
     else:
-        got = (
-            f"{item['emoji']} یک {item['name']} خریدی!\n"
-            "🫧 توی «تخم ها» می‌تونی زمان باز شدنش رو ببینی."
-        )
+        got = f"{item['emoji']} {item['name']} ×{to_fa(result.amount)}"
     return (
-        "✅ خرید انجام شد!\n\n"
+        "✅ خرید شد!\n\n"
         f"{got}\n"
-        f"💸 پرداختی: {CURRENCY} {to_fa(result.price)} ابسیدین\n"
-        f"💰 موجودی جدید: {CURRENCY} {to_fa(result.balance)} ابسیدین"
+        f"🪨 -{to_fa(result.price)}\n\n"
+        f"💰 {to_fa(result.balance)} 🪨"
     )
 
 
@@ -172,24 +166,23 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 if result.reason == "not_enough":
                     await _answer(
                         query,
-                        f"{CURRENCY} ابسیدین کافی نداری! "
-                        f"{to_fa(result.missing)} تای دیگه لازمه.",
+                        f"🪨 کم داری! {to_fa(result.missing)} تای دیگه لازمه.",
                         alert=True,
                     )
                 elif result.reason == "failed":
-                    await _answer(query, "خرید انجام نشد؛ دوباره امتحان کن.", alert=True)
+                    await _answer(query, "❌ خرید نشد! دوباره بزن.", alert=True)
                 else:
-                    await _answer(query, "این آیتم پیدا نشد.", alert=True)
+                    await _answer(query, "🚧 پیدا نشد.", alert=True)
                 return
 
-            await _answer(query, "✅ خرید انجام شد!")
+            await _answer(query, "✅ خرید شد!")
             await _edit(query, purchase_text(result), category_keyboard(category))
             return
 
         await _answer(query)
     except Exception:
         logger.exception("Market callback failed for %s", query.data)
-        await _answer(query, "خطایی پیش اومد؛ دوباره امتحان کن.", alert=True)
+        await _answer(query, "❌ خطا! دوباره بزن.", alert=True)
 
 
 # --- helpers ----------------------------------------------------------------

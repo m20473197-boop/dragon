@@ -17,22 +17,17 @@ from config import (
 from handlers.tracking import track_from_update
 
 WELCOME_TEXT = (
-    "🐉 به بازی «اژدها» خوش آمدی!\n\n"
-    "در گروه، تخم اژدهاها تصادفی ظاهر می‌شن؛ با دکمه «🥚 نگهداری از تخم» سریع‌تر "
-    "از بقیه اون‌ها رو بردار!\n"
-    "با شکار و ماهیگیری هم ممکنه تخم پیدا کنی. وقتی زمان پرورش تموم بشه، اژدها "
-    "خودکار از تخم بیرون میاد. 🐲\n"
-    "با شکار و ماهیگیری به اژدهات تجربه بده تا Level Up کنه و قوی‌تر بشه!\n\n"
-    "📜 دستورهای بازی (بدون اسلش /):\n"
-    f"🏹 {COMMAND_HUNT} — شکار حیوانات و گرفتن گوشت\n"
-    f"🎣 {COMMAND_FISHING} — صید ماهی\n"
-    f"🥚 {COMMAND_EGGS} — دیدن تخم‌ها و زمان باز شدنشون\n"
-    f"🐉 {COMMAND_MY_DRAGONS_MENU} — انتخاب اژدها، مشخصات، غذا دادن، ارتقا و تغییر نام\n"
-    f"📛 {COMMAND_NAME_DRAGON} — تعیین نام برای اژدها\n"
-    f"❄️ {COMMAND_STORAGE} — دیدن گوشت و ماهی ذخیره‌شده و دارایی\n"
-    f"🏪 {COMMAND_MARKET} — خرید غذا و تخم اژدها با ابسیدین\n"
-    f"⚔️ {COMMAND_BATTLE} — نبرد اژدهای فعال با یک دشمن تصادفی\n\n"
-    "کافیه دستور رو توی گروه بفرستی!"
+    "🐉 بازی اژدها\n\n"
+    "🥚 تخم بگیر → 🐲 اژدها پرورش بده → ⚔️ بجنگ!\n\n"
+    "📜 دستورها:\n"
+    f"🏹 {COMMAND_HUNT}\n"
+    f"🎣 {COMMAND_FISHING}\n"
+    f"🥚 {COMMAND_EGGS}\n"
+    f"🐉 {COMMAND_MY_DRAGONS_MENU}\n"
+    f"📛 {COMMAND_NAME_DRAGON}\n"
+    f"❄️ {COMMAND_STORAGE}\n"
+    f"🏪 {COMMAND_MARKET}\n"
+    f"⚔️ {COMMAND_BATTLE}"
 )
 
 

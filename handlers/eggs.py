@@ -23,24 +23,24 @@ async def eggs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     lines = []
     if created:
-        lines.append("🐉 به بازی اژدها خوش آمدی!")
+        lines.append("🐉 خوش اومدی!")
+        lines.append("")
 
     if not eggs:
-        lines.append("🥚 تخم فعالی نداری.")
-        lines.append("در گروه منتظر پیدا شدن تخم باش یا با شکار و ماهیگیری شانست رو امتحان کن!")
+        lines.append("🥚 تخمی نداری!")
     else:
-        lines.append(f"🥚 تخم‌های در حال انکوباسیون ({to_fa(len(eggs))}):")
+        lines.append(f"🥚 تخم‌ها ({to_fa(len(eggs))})")
+        lines.append("")
         now = time.time()
         for egg in eggs:
-            emoji, name = egg_display(egg.egg_type)
+            emoji, _ = egg_display(egg.egg_type)
             remaining = int((egg.hatch_time or now) - now)
             if remaining > 0:
-                lines.append(f"{emoji} {name} — ⏳ {format_remaining(remaining)} تا باز شدن")
+                lines.append(f"{emoji} ⏳ {format_remaining(remaining)}")
             else:
-                lines.append(f"{emoji} {name} — ✨ هر لحظه ممکنه باز بشه!")
+                lines.append(f"{emoji} ✨ الانه که باز شه!")
 
     lines.append("")
-    lines.append(f"🐉 اژدها: {to_fa(dragon_count)}")
-    lines.append(f"🥩 گوشت: {to_fa(player.meat)}  |  🐟 ماهی: {to_fa(player.fish)}")
+    lines.append(f"🐉 {to_fa(dragon_count)}   🥩 {to_fa(player.meat)}   🐟 {to_fa(player.fish)}")
 
     await message.reply_text("\n".join(lines))

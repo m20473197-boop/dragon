@@ -82,7 +82,8 @@ def main() -> None:
 
     # 3. Profile page contains every required field for the selected dragon.
     text = profile_text(dragons.get(azar.id))
-    for token in ("نام: آذر", "نوع:", "سطح:", "تجربه:", "سلامت:", "قدرت:", "سیری:"):
+    # Compact UI style: 🐉 <name> <type emoji> / Lv. / XP / HP / قدرت / گرسنگی
+    for token in ("🐉 آذر", "Lv.", "XP:", "HP:", "قدرت:", "گرسنگی:"):
         assert token in text, token
     assert "یخ پنجه" not in text and "رعد" not in text
     print("✓ profile page shows name/type/level/xp/hp/power/hunger of one dragon")
@@ -94,13 +95,12 @@ def main() -> None:
     # The active-dragon button was added on top of the existing four; the
     # original management buttons must all still be there, in order.
     assert plabels == [
-        "⭐ انتخاب به عنوان فعال",
-        "🥩 غذا دادن", "⬆️ ارتقا", "✏️ تغییر نام", "🔙 برگشت",
+        "🥩 غذا", "⬆️ ارتقا", "✏️ نام", "⭐ فعال", "🔙",
     ], plabels
     assert all(str(azar.id) in d for d in pdatas if not d.endswith("list"))
     assert f"{PREFIX}list" in pdatas  # back button returns to the list
     # No management buttons on the selection screen.
-    assert not any("غذا دادن" in t or "ارتقا" in t for t in labels)
+    assert not any("غذا" in t or "ارتقا" in t for t in labels)
     print("✓ management buttons exist only after selection and target that dragon")
 
     # 5. Feeding acts on the SELECTED dragon only.
@@ -140,7 +140,7 @@ def main() -> None:
     print("✓ upgrade page targets the selected dragon")
 
     # 9. Back button data returns to the selection list.
-    back = [b for row in pkb.inline_keyboard for b in row if b.text == "🔙 برگشت"][0]
+    back = [b for row in pkb.inline_keyboard for b in row if b.text == "🔙"][0]
     assert back.callback_data == f"{PREFIX}list"
     print("✓ back button returns to the dragon selection list")
 

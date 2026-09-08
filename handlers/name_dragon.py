@@ -43,17 +43,15 @@ async def name_dragon_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if dragon is None:
         await message.reply_text(
-            "🐉 هنوز اژدهایی نداری که نامش رو تعیین کنی!\n"
-            "اول یک تخم اژدها بگیر و صبر کن تا اژدها ازش بیرون بیاد. 🥚"
+            "🐉 اژدهایی نداری!\n\n🥚 اول یک تخم بگیر."
         )
         return
 
     _begin_prompt(context, user_id=user.id, dragon_id=dragon.id, chat_id=update.effective_chat.id)
 
     await message.reply_text(
-        f"📛 برای اژدهات یک نام بفرست.\n\n"
-        f"نام باید بین ۱ تا {to_fa(DRAGON_NAME_MAX_LENGTH)} حرف باشه. "
-        f"اگه نمی‌خوای نام‌گذاری کنی، یک دستور بازی (مثل «شکار») بفرست تا لغو بشه."
+        f"📛 یک نام بفرست:\n\n"
+        f"✏️ حداکثر {to_fa(DRAGON_NAME_MAX_LENGTH)} حرف"
     )
 
 
@@ -87,7 +85,7 @@ async def capture_dragon_name(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Validate length.
     if len(raw_name) > DRAGON_NAME_MAX_LENGTH:
         await message.reply_text(
-            f"⚠️ نام خیلی بلنده! حداکثر {to_fa(DRAGON_NAME_MAX_LENGTH)} حرف بفرست."
+            f"⚠️ خیلی بلنده! حداکثر {to_fa(DRAGON_NAME_MAX_LENGTH)} حرف."
         )
         return True  # consume the message; the prompt stays open
 
@@ -96,12 +94,12 @@ async def capture_dragon_name(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if renamed is None:
         await message.reply_text(
-            "نشد نام اژدها رو ذخیره کنم؛ لطفاً دوباره «نام اژدها» رو بفرست."
+            "❌ ذخیره نشد! دوباره امتحان کن."
         )
         return True
 
     await message.reply_text(
-        f"✅ تمام شد! از این به بعد اژدهات «{renamed.name}» صدا زده می‌شه. 🐉"
+        f"✅ نام جدید: 🐉 {renamed.name}"
     )
     return True
 
