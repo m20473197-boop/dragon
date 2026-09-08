@@ -1,8 +1,23 @@
 """Persian text helpers: digit conversion, cooldown formatting, command
-normalization."""
+normalization and the shared reward card."""
 from __future__ import annotations
 
 _PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹"
+
+# Emoji used for every reward line, so a reward looks the same everywhere
+# (chests, battles, admin grants). Display only — no amounts or rules here.
+REWARD_EMOJI: dict[str, str] = {
+    "obsidian": "🪨",
+    "aether": "✨",
+    "meat": "🥩",
+    "fish": "🐟",
+    "xp": "⭐",
+}
+
+# Stable order so rewards never shuffle between messages.
+REWARD_ORDER: tuple[str, ...] = ("xp", "obsidian", "aether", "meat", "fish")
+
+REWARD_TITLE = "🎉 جایزه گرفتی!"
 
 
 def to_fa(number: int | str) -> str:
@@ -34,3 +49,32 @@ def normalize_command(text: str | None) -> str:
     if not text:
         return ""
     return " ".join(text.replace("\u200c", " ").split())
+
+
+def format_reward_lines(rewards: dict) -> list[str]:
+    """«🪨 +۵۰۰» style lines for a {key: amount} mapping (zeros skipped)."""
+    lines = []
+    for key in REWARD_ORDER:
+        amount = rewards.get(key, 0)
+        if amount:
+            suffix = " XP" if key == "xp" else ""
+            lines.append(f"{REWARD_EMOJI[key]} +{to_fa(amount)}{suffix}")
+    return lines
+
+
+def reward_card(rewards: dict, title: str = REWARD_TITLE, who: str | None = None) -> str:
+    """A short reward message::
+
+        🎉 جایزه گرفتی!
+
+        🪨 +۵۰۰
+        ✨ +۳
+
+    ``who`` adds a «👤 <name>» line (used when a group announcement needs to
+    say who received the reward).
+    """
+    lines = [title, ""]
+    if who:
+        lines += [f"👤 {who}", ""]
+    lines += format_reward_lines(rewards)
+    return "\n".join(lines)

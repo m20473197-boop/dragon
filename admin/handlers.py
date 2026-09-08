@@ -298,13 +298,13 @@ async def _create_test_dragon_for(query, context: ContextTypes.DEFAULT_TYPE) -> 
         target_id = reply.from_user.id
     dragon = service.create_test_dragon(target_id)
     if dragon is None:
-        await query.answer("کاربر در دیتابیس نیست.", show_alert=True)
+        await query.answer("❌ کاربر پیدا نشد.", show_alert=True)
         return
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=(
-            f"🐉 یک اژدهای «{dragon.name}» (سطح {to_fa(dragon.level)}) برای کاربر "
-            f"<code>{to_fa(target_id)}</code> ساخته شد."
+            f"🐉 {dragon.name} — Lv.{to_fa(dragon.level)}\n"
+            f"👤 <code>{to_fa(target_id)}</code>"
         ),
         parse_mode="HTML",
     )
@@ -409,11 +409,12 @@ async def _process_add_food_text(
         emoji = "🥩" if food_key == "meat" else "🐟"
         word = "گوشت" if food_key == "meat" else "ماهی"
         await message.reply_text(
-            f"✅ {to_fa(amount)} {word} به سردخانه کاربر <code>{to_fa(target_id)}</code> اضافه شد. {emoji}",
+            f"✅ {emoji} +{to_fa(amount)} {word}\n"
+            f"👤 <code>{to_fa(target_id)}</code>",
             parse_mode="HTML",
         )
     else:
-        await message.reply_text("کاربر در دیتابیس یافت نشد (اول باید در بازی فعال باشه).")
+        await message.reply_text("❌ کاربر پیدا نشد.")
     return True
 
 

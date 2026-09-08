@@ -135,7 +135,7 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         if effective_message is not None and getattr(effective_message, "chat", None) is not None:
             await effective_message.chat.send_message(
-                "😅 مشکلی پیش اومد! یه کم بعد دوباره امتحان کن."
+                "😅 خطا! دوباره امتحان کن."
             )
     except Exception:
         logger.debug("Could not send error notice", exc_info=True)

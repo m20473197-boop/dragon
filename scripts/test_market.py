@@ -163,7 +163,7 @@ def main() -> None:
     assert MARKET_ITEMS["special"] == {}
     special_btns = [b for row in category_keyboard("special").inline_keyboard for b in row]
     assert len(special_btns) == 1 and special_btns[0].text == "🔙"
-    assert "هنوز آیتمی اینجا نیست" in category_text("special", 0)
+    assert "🚧 به‌زودی!" in category_text("special", 0)
     print("✓ special items category is present but empty")
 
     # 10. Nothing sells chests and no new currency exists.

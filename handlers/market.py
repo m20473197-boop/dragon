@@ -84,7 +84,7 @@ def category_text(category: str, balance: int) -> str:
 
     if not items:
         # The special category is intentionally empty for now.
-        lines.append("🚧 هنوز آیتمی اینجا نیست؛ به‌زودی اضافه می‌شه!")
+        lines.append("🚧 به‌زودی!")
     else:
         for item in items.values():
             amount = item.get("amount", 1)

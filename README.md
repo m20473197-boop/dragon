@@ -706,3 +706,31 @@ Rewards:
   برد `🏆 پیروزی!` با `⭐ +XP` و `🪨 +عدد`.
 - لِوِل‌آپ: `🎉 Level Up!` + `🔥 آذر ➜ Lv.۶` + `❤️ +۲۰   ⚔️ +۵`.
 - تخم: `🥚 تخم برداشته شد!` و بعد از باز شدن `🐣 تخم باز شد!`.
+
+### 🎉 Shared reward card
+
+All rewards render through one helper, `utils.text.reward_card()`, so a chest,
+a battle win and an admin grant look identical:
+
+```
+🎉 جایزه گرفتی!
+
+🪨 +۵۰۰
+✨ +۳
+```
+
+`reward_card(rewards, title=..., who=...)` swaps the title and adds a
+`👤 <name>` line — that is how the chest message is built:
+
+```
+🎁 صندوق باز شد!
+
+👤 Ali
+
+🪨 +۵۰۰
+✨ +۲
+🥩 +۱۰
+```
+
+Zero amounts are skipped and the order (`⭐ 🪨 ✨ 🥩 🐟`) is fixed, so rewards
+never shuffle between messages. `scripts/test_messages.py` pins both formats.

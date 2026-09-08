@@ -16,8 +16,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
 from telegram.error import BadRequest, Forbidden, NetworkError, RetryAfter, TelegramError, TimedOut
 from telegram.ext import ContextTypes
 
-from config import CURRENCIES, FOODS
-from utils.text import to_fa
+from utils.text import reward_card
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,7 @@ SEND_RETRIES = 2
 
 CHEST_TEXT = "🎁 صندوق پیدا شد!"
 CHEST_BUTTON_TEXT = "🎁 باز کردن"
+CHEST_OPENED_TITLE = "🎁 صندوق باز شد!"
 
 
 def build_chest_keyboard(chest_id: int) -> InlineKeyboardMarkup:
@@ -45,7 +45,8 @@ def build_chest_keyboard(chest_id: int) -> InlineKeyboardMarkup:
 def format_rewards(rewards: dict, opener: str | None = None) -> str:
     """Render the opened-chest message that replaces the spawn message.
 
-    Example::
+    Uses the shared reward card so a chest reward looks exactly like every
+    other reward in the game::
 
         🎁 صندوق باز شد!
 
@@ -55,20 +56,7 @@ def format_rewards(rewards: dict, opener: str | None = None) -> str:
         ✨ +۳
         🥩 +۱۵
     """
-    lines = ["🎁 صندوق باز شد!", ""]
-    if opener:
-        lines += [f"👤 {opener}", ""]
-    for key in ("obsidian", "aether"):
-        amount = rewards.get(key, 0)
-        if amount:
-            info = CURRENCIES[key]
-            lines.append(f"{info['emoji']} +{to_fa(amount)}")
-    for key in ("meat", "fish"):
-        amount = rewards.get(key, 0)
-        if amount:
-            info = FOODS[key]
-            lines.append(f"{info['emoji']} +{to_fa(amount)}")
-    return "\n".join(lines)
+    return reward_card(rewards, title=CHEST_OPENED_TITLE, who=opener)
 
 
 async def safe_send_message(

@@ -99,7 +99,7 @@ async def capture_dragon_name(update: Update, context: ContextTypes.DEFAULT_TYPE
         return True
 
     await message.reply_text(
-        f"✅ نام جدید: 🐉 {renamed.name}"
+        f"✅ نام ثبت شد!\n\n🐉 {renamed.name}"
     )
     return True
 
