@@ -416,3 +416,40 @@ total obsidian/aether in circulation, user info shows a player's balances, and
 
 Code: `models/chest.py`, `game/chests.py`, `handlers/chests.py`, job
 `chest_tick` in `handlers/jobs.py`. Tests: `scripts/test_chests.py`.
+
+## 🏪 Market (بازار)
+
+`بازار` opens an inline market. Everything is priced in **🪨 obsidian only** —
+aether is never spent, and there is no selling and no chest shop.
+
+> 🏪 بازار اژدها
+>
+> 💰 موجودی تو: 🪨 ۱۲۰۰ ابسیدین
+
+| Category | Contents |
+|----------|----------|
+| 🥩 غذا | 🥩 گوشت — ۱۰ عدد for 🪨 ۵۰ · 🐟 ماهی — ۱۰ عدد for 🪨 ۴۰ |
+| 🥚 تخم اژدها | 🥚 تخم معمولی for 🪨 ۸۰۰ |
+| ✨ آیتم‌های ویژه | Empty — reserved for future items |
+| 🔙 برگشت | Back to the category list |
+
+Each item has its own buy button. On success the message is edited to:
+
+> ✅ خرید انجام شد!
+>
+> 🥩 ۱۰ گوشت به سردخانه‌ات اضافه شد.
+> 💸 پرداختی: 🪨 ۵۰ ابسیدین · 💰 موجودی جدید: 🪨 ۱۱۵۰ ابسیدین
+
+**Food** is deposited into the cold storage. **Eggs** are created through the
+existing egg pipeline (`EggService.create_found_egg`, forced to the purchased
+type), so a bought egg is owned, incubating, counted in `players.eggs`, listed
+by `تخم ها` and hatched by the normal hatch sweep — no new egg mechanics.
+
+**Safety:** payment uses a guarded `spend_currency` UPDATE
+(`... WHERE obsidian >= price`), so a balance can never go negative and ten
+simultaneous taps yield exactly one purchase (covered by the tests). If egg
+creation ever fails, the obsidian is refunded.
+
+Prices, amounts and new items live in `config.MARKET_ITEMS` — extending the
+market (including filling the special category) is a configuration change.
+Code: `game/market.py`, `handlers/market.py`. Tests: `scripts/test_market.py`.

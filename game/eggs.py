@@ -85,11 +85,22 @@ class EggService:
         return self.eggs.spawn_if_chat_free(egg_type, chat_id, now)
 
     def create_found_egg(
-        self, chat_id: int, owner_id: int, now: Optional[float] = None
+        self,
+        chat_id: int,
+        owner_id: int,
+        now: Optional[float] = None,
+        egg_type: Optional[str] = None,
     ) -> Egg:
-        """An egg found while gathering: immediately owned and incubating."""
+        """An egg found while gathering: immediately owned and incubating.
+
+        ``egg_type`` forces a specific type (used by the market, which sells a
+        known egg); when omitted a random type is rolled as before.
+        """
         now = now if now is not None else time.time()
-        egg_type = self.random_egg_type()
+        if egg_type is None:
+            egg_type = self.random_egg_type()
+        elif egg_type not in EGG_TYPES:
+            raise ValueError(f"Unknown egg type: {egg_type!r}")
         hatch_seconds = self.hatch_seconds(egg_type)
         with get_db() as conn:
             egg = self.eggs.create(

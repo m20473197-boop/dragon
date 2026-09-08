@@ -32,6 +32,7 @@ COMMAND_EGGS = "تخم ها"
 COMMAND_MY_DRAGONS_MENU = "اژدها های من"  # the only dragon/feeding entry point
 COMMAND_NAME_DRAGON = "نام اژدها"
 COMMAND_STORAGE = "سردخانه"
+COMMAND_MARKET = "بازار"
 COMMAND_ADMIN_PANEL = "پنل مدیریت"
 COMMAND_ADMIN_TEST_EGG = "ساخت تخم تست"
 COMMAND_ADMIN_ADD_FOOD = "اضافه غذا"
@@ -200,6 +201,37 @@ CHEST_REWARDS: dict[str, dict] = {
     "aether":   {"chance": 0.15, "min": 1,   "max": 10},
     "meat":     {"chance": 0.60, "min": 5,   "max": 30},
     "fish":     {"chance": 0.60, "min": 5,   "max": 30},
+}
+
+# --- Market (بازار) ---------------------------------------------------------
+# Everything purchasable, priced in 🪨 obsidian only. Amounts and prices are
+# configuration, so the market can grow without touching the code.
+# 'special' is intentionally empty: reserved for future items.
+MARKET_ITEMS: dict[str, dict] = {
+    "food": {
+        "meat": {
+            "name": "گوشت", "emoji": "🥩", "price": 50,
+            "amount": 10, "kind": "food", "resource": "meat",
+        },
+        "fish": {
+            "name": "ماهی", "emoji": "🐟", "price": 40,
+            "amount": 10, "kind": "food", "resource": "fish",
+        },
+    },
+    "eggs": {
+        "common": {
+            "name": "تخم معمولی", "emoji": "🥚", "price": 800,
+            "amount": 1, "kind": "egg", "egg_type": "common",
+        },
+    },
+    # Reserved for future content — no items yet, on purpose.
+    "special": {},
+}
+
+MARKET_CATEGORIES: dict[str, dict] = {
+    "food":    {"name": "غذا", "emoji": "🥩"},
+    "eggs":    {"name": "تخم اژدها", "emoji": "🥚"},
+    "special": {"name": "آیتم‌های ویژه", "emoji": "✨"},
 }
 
 # --- Egg spawning in groups -------------------------------------------------

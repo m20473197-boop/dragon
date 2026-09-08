@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 _COOLDOWN_COLUMNS = {"last_hunt_time", "last_fishing_time"}
 # Statistics counter columns that may be bumped atomically.
 _COUNT_COLUMNS = {"hunt_count", "fishing_count"}
+# Currency columns that may be spent (whitelisted: interpolated into SQL).
+_CURRENCY_COLUMNS = {"obsidian", "aether"}
 
 
 @dataclass
@@ -159,6 +161,25 @@ class PlayerRepository:
         with db_scope(conn) as c:
             cur = c.execute(
                 f"UPDATE players SET {column} = {column} - ? WHERE user_id = ? AND {column} >= ?",
+                (amount, user_id, amount),
+            )
+            return cur.rowcount == 1
+
+    def spend_currency(self, user_id: int, column: str, amount: int, conn=None) -> bool:
+        """Atomically spend ``amount`` of a currency (obsidian/aether).
+
+        The guarded UPDATE only succeeds when the player has enough, so a
+        balance can never go negative and two concurrent purchases can never
+        spend the same coins twice. Returns True on success.
+        """
+        if column not in _CURRENCY_COLUMNS:
+            raise ValueError(f"Unknown currency column: {column!r}")
+        if amount < 0:
+            raise ValueError("amount must be non-negative")
+        with db_scope(conn) as c:
+            cur = c.execute(
+                f"UPDATE players SET {column} = {column} - ? "
+                f" WHERE user_id = ? AND {column} >= ?",
                 (amount, user_id, amount),
             )
             return cur.rowcount == 1

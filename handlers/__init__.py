@@ -28,6 +28,7 @@ from config import (
     COMMAND_EGGS,
     COMMAND_FISHING,
     COMMAND_HUNT,
+    COMMAND_MARKET,
     COMMAND_MY_DRAGONS_MENU,
     COMMAND_NAME_DRAGON,
     COMMAND_STORAGE,
@@ -39,6 +40,7 @@ from game.dragons import DragonService
 from game.eggs import EggService
 from game.feeding import FeedingService
 from game.chests import ChestService
+from game.market import MarketService
 from game.storage import ColdStorageService
 from game.upgrades import UpgradeService
 from handlers.common import help_command, start_command
@@ -48,6 +50,11 @@ from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.chests import CHEST_PREFIX, open_chest_callback
 from handlers.jobs import chest_tick, hatch_sweep, spawn_tick
+from handlers.market import (
+    PREFIX as MARKET_PREFIX,
+    market_callback,
+    market_command,
+)
 from admin import keyboards as admin_kb
 from admin.handlers import admin_capture, admin_callback, admin_panel_command, admin_test_egg_command
 from handlers.dragon_manage import (
@@ -83,6 +90,7 @@ COMMAND_MAP = {
     "اژدهاهای من": my_dragons_menu_command,
     COMMAND_NAME_DRAGON: name_dragon_command,
     COMMAND_STORAGE: storage_command,
+    COMMAND_MARKET: market_command,
     COMMAND_ADMIN_PANEL: admin_panel_command,
     COMMAND_ADMIN_TEST_EGG: admin_test_egg_command,
 }
@@ -152,6 +160,11 @@ def _setup_shared_objects(application: Application) -> None:
         players=application.bot_data["player_repo"],
         storage=application.bot_data["storage_service"],
     )
+    application.bot_data["market_service"] = MarketService(
+        players=application.bot_data["player_repo"],
+        storage=application.bot_data["storage_service"],
+        egg_service=application.bot_data["egg_service"],
+    )
     application.bot_data["upgrade_service"] = UpgradeService(
         dragons=application.bot_data["dragon_repo"],
         players=application.bot_data["player_repo"],
@@ -200,6 +213,11 @@ def register_all(application: Application) -> None:
     # Inline-button chest opening: "open_chest:<id>"
     application.add_handler(
         CallbackQueryHandler(open_chest_callback, pattern=rf"^{CHEST_PREFIX}\d+$")
+    )
+
+    # Market: "mk:<action>[:<category>[:<item>]]"
+    application.add_handler(
+        CallbackQueryHandler(market_callback, pattern=rf"^{MARKET_PREFIX}")
     )
 
     # Dragon management panel: "dg:<action>[:<dragon_id>...]"

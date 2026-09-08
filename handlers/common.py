@@ -8,6 +8,7 @@ from config import (
     COMMAND_EGGS,
     COMMAND_FISHING,
     COMMAND_HUNT,
+    COMMAND_MARKET,
     COMMAND_MY_DRAGONS_MENU,
     COMMAND_NAME_DRAGON,
     COMMAND_STORAGE,
@@ -27,7 +28,8 @@ WELCOME_TEXT = (
     f"🥚 {COMMAND_EGGS} — دیدن تخم‌ها و زمان باز شدنشون\n"
     f"🐉 {COMMAND_MY_DRAGONS_MENU} — انتخاب اژدها، مشخصات، غذا دادن، ارتقا و تغییر نام\n"
     f"📛 {COMMAND_NAME_DRAGON} — تعیین نام برای اژدها\n"
-    f"❄️ {COMMAND_STORAGE} — دیدن گوشت و ماهی ذخیره‌شده\n\n"
+    f"❄️ {COMMAND_STORAGE} — دیدن گوشت و ماهی ذخیره‌شده و دارایی\n"
+    f"🏪 {COMMAND_MARKET} — خرید غذا و تخم اژدها با ابسیدین\n\n"
     "کافیه دستور رو توی گروه بفرستی!"
 )
 
