@@ -486,3 +486,19 @@ a group is never locked out for nothing.
 Only the *frequency* changed — the claim button, egg storage, the one-egg-
 per-group rule, incubation and hatching are all untouched. The runtime value
 lives in `game/spawn_settings.py`. Tests: `scripts/test_spawn_cooldown.py`.
+
+## 🛡️ Robust message sending
+
+Scheduled jobs (egg spawner, chest spawner, hatch sweep) never crash when
+Telegram is slow or unreachable:
+
+- HTTP timeouts are raised at the application level (connect 15s, read/write 30s,
+  `get_updates` 40s).
+- All job announcements go through `handlers.chests.safe_send_message`, which
+  retries `TimedOut` / `NetworkError` twice with backoff, honours `RetryAfter`
+  flood control, and returns `None` instead of raising.
+- Blocked bots (`Forbidden`) and invalid chat ids (`BadRequest`) are logged once
+  and skipped without retrying.
+- Every failed announcement is logged with the chat id and what was being sent.
+
+Covered by `scripts/test_send_resilience.py`.

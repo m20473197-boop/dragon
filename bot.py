@@ -37,7 +37,19 @@ def main() -> None:
     run_migrations()
 
     logger.info("Starting Dragon bot...")
-    application = ApplicationBuilder().token(token).build()
+    # Generous HTTP timeouts: slow Telegram responses used to raise TimedOut
+    # inside scheduled jobs. Sending is additionally retried in
+    # handlers.chests.safe_send_message.
+    application = (
+        ApplicationBuilder()
+        .token(token)
+        .connect_timeout(15.0)
+        .read_timeout(30.0)
+        .write_timeout(30.0)
+        .pool_timeout(15.0)
+        .get_updates_read_timeout(40.0)
+        .build()
+    )
     register_all(application)
 
     # Run until Ctrl+C. drop_pending_updates avoids processing old commands

@@ -191,10 +191,11 @@ def _setup_jobs(application: Application) -> None:
     jq.run_repeating(hatch_sweep, interval=HATCH_SWEEP_INTERVAL_SECONDS, first=15, name="hatch_sweep")
     jq.run_repeating(chest_tick, interval=CHEST_CHECK_INTERVAL_SECONDS, first=45, name="chest_tick")
     logger.info(
-        "Scheduled egg spawner (every %ss) and hatch sweep (every %ss)",
+        "Scheduled egg spawner (every %ss), hatch sweep (every %ss) "
+        "and chest spawner (every %ss)",
         SPAWN_CHECK_INTERVAL_SECONDS,
+        HATCH_SWEEP_INTERVAL_SECONDS,
         CHEST_CHECK_INTERVAL_SECONDS,
-    HATCH_SWEEP_INTERVAL_SECONDS,
     )
 
 

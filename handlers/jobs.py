@@ -27,7 +27,7 @@ from config import (
 )
 from game import spawn_settings
 from game.eggs import dragon_display, egg_display
-from handlers.chests import CHEST_TEXT, build_chest_keyboard
+from handlers.chests import CHEST_TEXT, build_chest_keyboard, safe_send_message
 from handlers.spawn import SPAWN_TEXT, build_spawn_keyboard
 from models.egg import Egg
 from models.player import PlayerRepository
@@ -69,18 +69,20 @@ async def spawn_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
                 # is not silently locked out for a whole interval.
                 chats_repo.release_egg_spawn(chat.chat_id, chat.last_egg_spawn_time)
                 continue
-            try:
-                sent = await context.bot.send_message(
-                    chat_id=chat.chat_id,
-                    text=SPAWN_TEXT,
-                    reply_markup=build_spawn_keyboard(egg.id),
-                )
+            # Bot removed from group / timeout — the egg row exists but has no
+            # message; the cooldown still applies so the bot does not hammer a
+            # group it cannot post in.
+            sent = await safe_send_message(
+                context,
+                chat.chat_id,
+                SPAWN_TEXT,
+                what="egg announcement",
+                reply_markup=build_spawn_keyboard(egg.id),
+            )
+            if sent is None:
+                logger.warning("Could not spawn egg in chat %s", chat.chat_id)
+            else:
                 egg_service.eggs.set_message_id(egg.id, sent.message_id)
-            except (BadRequest, TelegramError):
-                # Bot removed from group / cannot post — skip it. The egg row
-                # exists but has no message; the cooldown still applies so the
-                # bot does not hammer a group it cannot post in.
-                logger.warning("Could not spawn egg in chat %s", chat.chat_id, exc_info=True)
         except Exception:
             logger.exception("spawn_tick: failed for chat %s", chat.chat_id)
 
@@ -107,10 +109,11 @@ async def _announce_hatching(context: ContextTypes.DEFAULT_TYPE, event) -> None:
         f"🐉 تخم {egg_emoji} <b>{egg_name}</b> شکست!\n"
         f"{owner_link} صاحب یک {emoji} <b>{dragon_name}</b> شد! تبریک! 🎉"
     )
-    try:
-        await context.bot.send_message(chat_id=event.chat_id, text=text, parse_mode="HTML")
-    except (BadRequest, TelegramError):
-        logger.warning("Could not announce hatching in chat %s", event.chat_id, exc_info=True)
+    sent = await safe_send_message(
+        context, event.chat_id, text, what="hatch announcement", parse_mode="HTML"
+    )
+    if sent is None:
+        logger.warning("Could not announce hatching in chat %s", event.chat_id)
 
 
 async def _sweep_expired_button(context: ContextTypes.DEFAULT_TYPE, egg: Egg) -> None:
@@ -173,14 +176,22 @@ async def chest_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
             if chest is None:
                 continue
             try:
-                sent = await context.bot.send_message(
-                    chat_id=chat.chat_id,
-                    text=CHEST_TEXT,
+                sent = await safe_send_message(
+                    context,
+                    chat.chat_id,
+                    CHEST_TEXT,
+                    what="chest announcement",
                     reply_markup=build_chest_keyboard(chest.id),
                 )
-                chest_service.chests.set_message_id(chest.id, sent.message_id)
-            except (BadRequest, TelegramError):
-                logger.warning("Could not spawn chest in chat %s", chat.chat_id, exc_info=True)
+                if sent is None:
+                    logger.warning(
+                        "Chest %s announcement failed in chat %s; it will expire quietly",
+                        chest.id, chat.chat_id,
+                    )
+                else:
+                    chest_service.chests.set_message_id(chest.id, sent.message_id)
+            except Exception:
+                logger.exception("Could not spawn chest in chat %s", chat.chat_id)
         except Exception:
             logger.exception("chest_tick: failed for chat %s", chat.chat_id)
 
