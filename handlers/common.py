@@ -5,6 +5,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from config import (
+    COMMAND_BATTLE,
     COMMAND_EGGS,
     COMMAND_FISHING,
     COMMAND_HUNT,
@@ -29,7 +30,8 @@ WELCOME_TEXT = (
     f"🐉 {COMMAND_MY_DRAGONS_MENU} — انتخاب اژدها، مشخصات، غذا دادن، ارتقا و تغییر نام\n"
     f"📛 {COMMAND_NAME_DRAGON} — تعیین نام برای اژدها\n"
     f"❄️ {COMMAND_STORAGE} — دیدن گوشت و ماهی ذخیره‌شده و دارایی\n"
-    f"🏪 {COMMAND_MARKET} — خرید غذا و تخم اژدها با ابسیدین\n\n"
+    f"🏪 {COMMAND_MARKET} — خرید غذا و تخم اژدها با ابسیدین\n"
+    f"⚔️ {COMMAND_BATTLE} — نبرد اژدهای فعال با یک دشمن تصادفی\n\n"
     "کافیه دستور رو توی گروه بفرستی!"
 )
 

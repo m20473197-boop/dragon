@@ -167,6 +167,18 @@ class DragonRepository:
             )
             return cur.rowcount == 1
 
+    def set_hp(self, dragon_id: int, hp: int, conn=None) -> bool:
+        """Set current HP, clamped to [0, max_hp]. Used by the combat system.
+
+        The dragon is never deleted or removed by this — only its HP changes.
+        """
+        with db_scope(conn) as c:
+            cur = c.execute(
+                "UPDATE dragons SET hp = MAX(0, MIN(?, max_hp)) WHERE id = ?",
+                (int(hp), dragon_id),
+            )
+            return cur.rowcount == 1
+
     def update_growth(
         self,
         dragon_id: int,

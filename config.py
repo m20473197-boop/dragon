@@ -33,6 +33,7 @@ COMMAND_MY_DRAGONS_MENU = "اژدها های من"  # the only dragon/feeding en
 COMMAND_NAME_DRAGON = "نام اژدها"
 COMMAND_STORAGE = "سردخانه"
 COMMAND_MARKET = "بازار"
+COMMAND_BATTLE = "مبارزه"
 COMMAND_ADMIN_PANEL = "پنل مدیریت"
 COMMAND_ADMIN_TEST_EGG = "ساخت تخم تست"
 COMMAND_ADMIN_ADD_FOOD = "اضافه غذا"
@@ -297,3 +298,66 @@ def require_token() -> str:
             "variable (copy .env.example to .env and fill it in)."
         )
     return BOT_TOKEN
+
+
+# --- Combat (Version 4: basic PvE) ------------------------------------------
+# Enemies a dragon can meet with the «مبارزه» command. One is picked at random
+# (weighted). Everything here is configuration, so new enemies can be added
+# without touching the combat code. No PvP, bosses, equipment or skills.
+ENEMIES: dict[str, dict] = {
+    "wolf": {
+        "name": "گرگ وحشی",
+        "emoji": "🐺",
+        "max_hp": 80,
+        "attack_power": 10,
+        "reward_min": 60,
+        "reward_max": 140,
+        "xp_min": 15,
+        "xp_max": 25,
+        "weight": 45,
+    },
+    "forest_monster": {
+        "name": "هیولای جنگل",
+        "emoji": "👹",
+        "max_hp": 120,
+        "attack_power": 16,
+        "reward_min": 120,
+        "reward_max": 260,
+        "xp_min": 25,
+        "xp_max": 40,
+        "weight": 35,
+    },
+    "giant_scorpion": {
+        "name": "عقرب غول پیکر",
+        "emoji": "🦂",
+        "max_hp": 100,
+        "attack_power": 22,
+        "reward_min": 150,
+        "reward_max": 320,
+        "xp_min": 30,
+        "xp_max": 50,
+        "weight": 20,
+    },
+}
+
+# Damage rolling. The dragon hits for its (hunger-adjusted) power plus a random
+# bonus; the enemy hits for its attack power with a small random spread.
+BATTLE_DAMAGE_BONUS_MIN: int = 0
+BATTLE_DAMAGE_BONUS_MAX: int = 10
+BATTLE_ENEMY_DAMAGE_SPREAD: int = 3     # enemy damage is power ± this
+BATTLE_MIN_DAMAGE: int = 1              # a hit always does at least this much
+
+# The dragon never dies. When its HP would drop to or below this value it is
+# "weakened": HP is clamped here and the battle is lost.
+BATTLE_DRAGON_MIN_HP: int = 1
+# A dragon at or below this HP is too weak to start a new battle and must rest.
+BATTLE_MIN_HP_TO_FIGHT: int = 10
+
+# Rare bonus currency on a win.
+BATTLE_AETHER_CHANCE: float = 0.12
+BATTLE_AETHER_MIN: int = 1
+BATTLE_AETHER_MAX: int = 3
+
+# Abandoned battles (nobody pressed a button) are reclaimed after this, so a
+# player is never locked out of «مبارزه» by a forgotten fight.
+BATTLE_STALE_SECONDS: int = 30 * 60

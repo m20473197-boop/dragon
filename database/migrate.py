@@ -34,6 +34,15 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
     "chats": {
         "last_egg_spawn_time": "REAL",
     },
+    "battles": {
+        "chat_id": "INTEGER",
+        "message_id": "INTEGER",
+        "enemy_max_hp": "INTEGER NOT NULL DEFAULT 0",
+        "turns": "INTEGER NOT NULL DEFAULT 0",
+        "updated_time": "REAL",
+        "finished_time": "REAL",
+        "reward": "TEXT",
+    },
     "eggs": {
         "is_test": "INTEGER NOT NULL DEFAULT 0",
     },
@@ -47,6 +56,26 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
         "hunger": f"INTEGER NOT NULL DEFAULT {DRAGON_DEFAULT_HUNGER}",
         "last_fed_time": "REAL",
     },
+}
+
+
+# Indexes that newer versions rely on. ``schema.sql`` creates them for fresh
+# installs; older databases that already had the table get them here.
+_EXPECTED_INDEXES: dict[str, str] = {
+    "idx_battles_one_active": (
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_battles_one_active "
+        "ON battles (user_id) WHERE status = 'active'"
+    ),
+    "idx_battles_status_created": (
+        "CREATE INDEX IF NOT EXISTS idx_battles_status_created "
+        "ON battles (status, created_time)"
+    ),
+}
+
+# Tables added after the first release. ``init_db()`` creates them from
+# schema.sql, so this is only a safety net for the index definitions above.
+_INDEX_TABLES: dict[str, tuple[str, ...]] = {
+    "battles": ("idx_battles_one_active", "idx_battles_status_created"),
 }
 
 
@@ -72,3 +101,13 @@ def run_migrations() -> None:
                 if column not in present:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
                     logger.info("Migrated %s: added column %s", table, column)
+
+        # Make sure the newer indexes exist on upgraded databases too.
+        for table, index_names in _INDEX_TABLES.items():
+            if table not in tables:
+                continue
+            for index_name in index_names:
+                try:
+                    conn.execute(_EXPECTED_INDEXES[index_name])
+                except Exception:  # pragma: no cover - never block startup
+                    logger.exception("Could not create index %s", index_name)

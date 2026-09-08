@@ -25,6 +25,7 @@ from telegram.ext import (
 from config import (
     COMMAND_ADMIN_PANEL,
     COMMAND_ADMIN_TEST_EGG,
+    COMMAND_BATTLE,
     COMMAND_EGGS,
     COMMAND_FISHING,
     COMMAND_HUNT,
@@ -36,6 +37,7 @@ from config import (
     HATCH_SWEEP_INTERVAL_SECONDS,
     SPAWN_CHECK_INTERVAL_SECONDS,
 )
+from game.combat import CombatService
 from game.dragons import DragonService
 from game.eggs import EggService
 from game.feeding import FeedingService
@@ -43,6 +45,11 @@ from game.chests import ChestService
 from game.market import MarketService
 from game.storage import ColdStorageService
 from game.upgrades import UpgradeService
+from handlers.battle import (
+    PREFIX as BATTLE_PREFIX,
+    battle_callback,
+    battle_command,
+)
 from handlers.common import help_command, start_command
 from handlers.eggs import eggs_command
 from handlers.errors import on_error
@@ -71,6 +78,7 @@ from handlers.spawn import CLAIM_PREFIX, claim_callback
 from handlers.storage import storage_command
 from handlers.tracking import track_from_update
 from admin.service import AdminService
+from models.battle import BattleRepository
 from models.chat import ChatRepository
 from models.chest import ChestRepository
 from models.dragon import DragonRepository
@@ -91,6 +99,7 @@ COMMAND_MAP = {
     COMMAND_NAME_DRAGON: name_dragon_command,
     COMMAND_STORAGE: storage_command,
     COMMAND_MARKET: market_command,
+    COMMAND_BATTLE: battle_command,
     COMMAND_ADMIN_PANEL: admin_panel_command,
     COMMAND_ADMIN_TEST_EGG: admin_test_egg_command,
 }
@@ -135,6 +144,7 @@ def _setup_shared_objects(application: Application) -> None:
     application.bot_data["egg_repo"] = EggRepository()
     application.bot_data["chest_repo"] = ChestRepository()
     application.bot_data["dragon_repo"] = DragonRepository()
+    application.bot_data["battle_repo"] = BattleRepository()
 
     # Cold storage (سردخانه) holds every player's meat and fish. It is shared
     # by gathering (deposit) and feeding (consume).
@@ -169,6 +179,13 @@ def _setup_shared_objects(application: Application) -> None:
     application.bot_data["upgrade_service"] = UpgradeService(
         dragons=application.bot_data["dragon_repo"],
         players=application.bot_data["player_repo"],
+    )
+    # Basic PvE combat (مبارزه). Rewards reuse the currency + XP systems.
+    application.bot_data["combat_service"] = CombatService(
+        battles=application.bot_data["battle_repo"],
+        dragons=application.bot_data["dragon_repo"],
+        players=application.bot_data["player_repo"],
+        dragon_service=application.bot_data["dragon_service"],
     )
     application.bot_data["admin_service"] = AdminService(
         players=application.bot_data["player_repo"],
@@ -219,6 +236,11 @@ def register_all(application: Application) -> None:
     # Market: "mk:<action>[:<category>[:<item>]]"
     application.add_handler(
         CallbackQueryHandler(market_callback, pattern=rf"^{MARKET_PREFIX}")
+    )
+
+    # Battle buttons: "bt:<action>:<battle_id>"
+    application.add_handler(
+        CallbackQueryHandler(battle_callback, pattern=rf"^{BATTLE_PREFIX}")
     )
 
     # Dragon management panel: "dg:<action>[:<dragon_id>...]"
