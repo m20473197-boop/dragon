@@ -190,7 +190,7 @@ def main():
         check("dragon lost hp", dragons.get(d1.id).hp < 100)
         t = battle_ui.turn_text(r)
         check("turn message has the required lines",
-              "⚔️" in t and "❤️" in t and enemy_name_in(t, r), t)
+              "Damage" in t and "❤️" in t and enemy_name_in(t, r), t)
 
     # --- 8. fight to the death: enemy dies, rewards are paid ---------------
     strong = make_player_with_dragon(players, dragons, 3001, power=500, hp=100, max_hp=100)
@@ -215,7 +215,7 @@ def main():
     check("reward snapshot saved in the database",
           battles.get(bid).reward_dict().get("obsidian") == win.obsidian)
     vt = battle_ui.victory_text(win)
-    check("victory message is correct", "🎉 پیروزی!" in vt and "🪨 +" in vt, vt)
+    check("victory message is correct", "🏆 پیروزی!" in vt and "🪨 +" in vt, vt)
     check("winner keeps hp (enemy never struck back)", win.dragon_hp_after > 0)
 
     # buttons after the battle ended

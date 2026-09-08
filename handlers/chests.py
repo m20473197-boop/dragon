@@ -32,7 +32,7 @@ SEND_CONNECT_TIMEOUT = 15.0
 SEND_POOL_TIMEOUT = 15.0
 SEND_RETRIES = 2
 
-CHEST_TEXT = "🎁 صندوق مرموز پیدا شد!"
+CHEST_TEXT = "🎁 صندوق پیدا شد!"
 CHEST_BUTTON_TEXT = "🎁 باز کردن"
 
 
@@ -49,29 +49,25 @@ def format_rewards(rewards: dict, opener: str | None = None) -> str:
 
         🎁 صندوق باز شد!
 
-        👤 باز کننده:
-        Ali
+        👤 Ali
 
-        Rewards:
-
-        🪨 +۸۵۰ ابسیدین
-        ✨ +۳ اتر
-        🥩 +۱۵ گوشت
-        🐟 +۲۰ ماهی
+        🪨 +۸۵۰
+        ✨ +۳
+        🥩 +۱۵
     """
     lines = ["🎁 صندوق باز شد!", ""]
     if opener:
-        lines += ["👤 باز کننده:", opener, "", "Rewards:", ""]
+        lines += [f"👤 {opener}", ""]
     for key in ("obsidian", "aether"):
         amount = rewards.get(key, 0)
         if amount:
             info = CURRENCIES[key]
-            lines.append(f"{info['emoji']} +{to_fa(amount)} {info['name']}")
+            lines.append(f"{info['emoji']} +{to_fa(amount)}")
     for key in ("meat", "fish"):
         amount = rewards.get(key, 0)
         if amount:
             info = FOODS[key]
-            lines.append(f"{info['emoji']} +{to_fa(amount)} {info['name']}")
+            lines.append(f"{info['emoji']} +{to_fa(amount)}")
     return "\n".join(lines)
 
 

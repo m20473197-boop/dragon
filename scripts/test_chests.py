@@ -155,7 +155,7 @@ def main() -> None:
     # 11. The reward message is rendered as required.
     text = format_rewards({"obsidian": 850, "aether": 3, "meat": 15, "fish": 20})
     assert text.startswith("🎁 صندوق باز شد!")
-    for token in ("۸۵۰ ابسیدین", "۳ اتر", "۱۵ گوشت", "۲۰ ماهی"):
+    for token in ("🪨 +۸۵۰", "✨ +۳", "🥩 +۱۵", "🐟 +۲۰"):
         assert token in text, token
     # Zero-value rewards are omitted.
     assert "اتر" not in format_rewards({"obsidian": 100})

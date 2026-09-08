@@ -67,7 +67,7 @@ async def claim_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             chat_id = query.message.chat_id if query.message is not None else user.id
             mention = user.mention_html(user.full_name or f"کاربر {user.id}")
-            text = f"🥚 {emoji} {name}\n\n👤 {mention}\n⏳ در حال پرورش..."
+            text = f"🥚 تخم برداشته شد!\n\n👤 {mention}\n{emoji} {name}\n⏳ در حال پرورش..."
             try:
                 await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
             except (BadRequest, TelegramError):

@@ -100,15 +100,11 @@ def category_text(category: str, balance: int) -> str:
 def purchase_text(result) -> str:
     """Success message for a completed purchase."""
     item = result.item
-    if item["kind"] == "food":
-        got = f"{item['emoji']} +{to_fa(result.amount)} {item['name']}"
-    else:
-        got = f"{item['emoji']} {item['name']} ×{to_fa(result.amount)}"
+    got = f"{item['emoji']} +{to_fa(result.amount)} {item['name']}"
     return (
         "✅ خرید شد!\n\n"
         f"{got}\n"
-        f"🪨 -{to_fa(result.price)}\n\n"
-        f"💰 {to_fa(result.balance)} 🪨"
+        f"🪨 -{to_fa(result.price)}   💰 {to_fa(result.balance)}"
     )
 
 

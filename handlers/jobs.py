@@ -106,8 +106,9 @@ async def _announce_hatching(context: ContextTypes.DEFAULT_TYPE, event) -> None:
         owner_link = f"<a href='tg://user?id={event.owner_id}'>کاربر</a>"
 
     text = (
-        f"🐉 تخم {egg_emoji} <b>{egg_name}</b> شکست!\n"
-        f"{owner_link} صاحب یک {emoji} <b>{dragon_name}</b> شد! تبریک! 🎉"
+        "🐣 تخم باز شد!\n\n"
+        f"{egg_emoji} {egg_name} ➜ {emoji} <b>{dragon_name}</b>\n"
+        f"👤 {owner_link}"
     )
     sent = await safe_send_message(
         context, event.chat_id, text, what="hatch announcement", parse_mode="HTML"

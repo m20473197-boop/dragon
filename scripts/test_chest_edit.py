@@ -188,12 +188,11 @@ def main():
     rewards = {"obsidian": 850, "aether": 3, "meat": 10, "fish": 15}
     body = ch.format_rewards(rewards, opener="Ali")
     check("opened text has the title", body.startswith("🎁 صندوق باز شد!"), body)
-    check("opened text names the opener", "👤 باز کننده:" in body and "Ali" in body, body)
-    check("opened text has a Rewards header", "Rewards:" in body, body)
+    check("opened text names the opener", "👤 Ali" in body, body)
     for token in ("🪨 +۸۵۰", "✨ +۳", "🥩 +۱۰", "🐟 +۱۵"):
         check(f"rewards list contains {token}", token in body, body)
     check("formatter still works without an opener (back-compat)",
-          "باز کننده" not in ch.format_rewards(rewards))
+          "👤" not in ch.format_rewards(rewards))
 
     # spawn a chest and store its message id, exactly like the job does
     OPENER = 777

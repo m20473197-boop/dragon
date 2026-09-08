@@ -59,7 +59,7 @@ ACTION_SET_ACTIVE = "setactive"  # dg:setactive:<dragon_id> -> make it the activ
 
 SELECT_TITLE = "🐉 انتخاب اژدها:"
 NO_DRAGONS_TEXT = "🐉 اژدهایی نداری!\n\n🥚 توی گروه تخم پیدا کن."
-FULL_TEXT = "🍖 سیره!"
+FULL_TEXT = "🐉 {name} سیره!"
 BTN_SET_ACTIVE = "⭐ فعال"
 ALREADY_ACTIVE_TEXT = "⭐ همین الان فعاله."
 
@@ -374,20 +374,19 @@ async def _feed_one(query, context, dragon, user_id: int) -> None:
         return
 
     lines = [
-        f"🍖 {result.dragon.name} غذا خورد!",
+        f"{FOODS[result.food_key]['emoji']} {result.dragon.name} غذا خورد!",
         "",
-        f"{FOODS[result.food_key]['emoji']} -۱",
-        f"🍖 {to_fa(result.hunger_before)}٪ → {to_fa(result.hunger_after)}٪",
+        f"🍖 {to_fa(result.hunger_before)}٪ ➜ {to_fa(result.hunger_after)}٪",
     ]
+    extra = []
     if result.hp_healed > 0:
-        lines.append(f"❤️ +{to_fa(result.hp_healed)}")
+        extra.append(f"❤️ +{to_fa(result.hp_healed)}")
     if result.xp_added > 0:
-        lines.append(f"✨ +{to_fa(result.xp_added)}")
+        extra.append(f"✨ +{to_fa(result.xp_added)}")
+    if extra:
+        lines.append("   ".join(extra))
     if result.levels_gained > 0:
         lines.append(f"🎉 Lv.{to_fa(result.dragon.level)}!")
-
-    meat, fish = _storage(context, user_id)
-    lines += ["", f"🥩 {to_fa(meat)}   🐟 {to_fa(fish)}"]
 
     await _answer(query)
     await _edit(query, "\n".join(lines), feed_keyboard(result.dragon.id))
@@ -403,20 +402,20 @@ async def _feed_full(query, context, dragon, user_id: int) -> None:
     lines = [
         f"🍖 {result.dragon.name} سیر شد!",
         "",
+        f"🍖 {to_fa(result.hunger_before)}٪ ➜ {to_fa(result.hunger_after)}٪",
         _food_report(result.spent),
-        f"🍖 {to_fa(result.hunger_before)}٪ → {to_fa(result.hunger_after)}٪",
     ]
-    if result.hunger_after < 100:
-        lines.append("❄️ سردخانه خالی شد!")
+    extra = []
     if result.hp_healed > 0:
-        lines.append(f"❤️ +{to_fa(result.hp_healed)}")
+        extra.append(f"❤️ +{to_fa(result.hp_healed)}")
     if result.xp_added > 0:
-        lines.append(f"✨ +{to_fa(result.xp_added)}")
+        extra.append(f"✨ +{to_fa(result.xp_added)}")
+    if extra:
+        lines.append("   ".join(extra))
     if result.levels_gained > 0:
         lines.append(f"🎉 Lv.{to_fa(result.dragon.level)}!")
-
-    meat, fish = _storage(context, user_id)
-    lines += ["", f"🥩 {to_fa(meat)}   🐟 {to_fa(fish)}"]
+    if result.hunger_after < 100:
+        lines.append("❄️ سردخانه خالی شد!")
 
     await _answer(query)
     await _edit(query, "\n".join(lines), feed_keyboard(result.dragon.id))
@@ -424,7 +423,7 @@ async def _feed_full(query, context, dragon, user_id: int) -> None:
 
 async def _feed_failure(query, context, dragon, user_id: int, reason: str) -> None:
     if reason == "full":
-        await _answer(query, FULL_TEXT, alert=True)
+        await _answer(query, FULL_TEXT.format(name=dragon.name), alert=True)
         return
     if reason == "no_food":
         await _answer(

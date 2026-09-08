@@ -68,9 +68,7 @@ def hp_bar(current: int, maximum: int, width: int = 10) -> str:
 def start_text(dragon_name: str, enemy: Enemy) -> str:
     return (
         "⚔️ نبرد شروع شد!\n\n"
-        f"🐉 {dragon_name}\n"
-        "VS\n"
-        f"{enemy.emoji} {enemy.name}\n\n"
+        f"🐉 {dragon_name} VS {enemy.emoji} {enemy.name}\n\n"
         f"❤️ {to_fa(enemy.hp)}/{to_fa(enemy.max_hp)}\n"
         f"{hp_bar(enemy.hp, enemy.max_hp)}"
     )
@@ -81,7 +79,7 @@ def turn_text(result) -> str:
     dragon = result.dragon
     enemy = result.enemy
     lines = [
-        f"🐉 {dragon.name} ⚔️ {to_fa(result.dragon_damage)}",
+        f"🔥 {to_fa(result.dragon_damage)} Damage",
         "",
         f"{enemy.emoji} {enemy.name}",
         f"❤️ {to_fa(result.enemy_hp_after)}/{to_fa(enemy.max_hp)}",
@@ -90,7 +88,7 @@ def turn_text(result) -> str:
     if result.enemy_damage:
         lines += [
             "",
-            f"{enemy.emoji} 💥 {to_fa(result.enemy_damage)}",
+            f"💥 {to_fa(result.enemy_damage)} Damage",
             f"🐉 ❤️ {to_fa(result.dragon_hp_after)}/{to_fa(dragon.max_hp)}",
             hp_bar(result.dragon_hp_after, dragon.max_hp),
         ]
@@ -101,17 +99,17 @@ def victory_text(result) -> str:
     dragon = result.dragon
     enemy = result.enemy
     lines = [
-        "🎉 پیروزی!",
+        "🏆 پیروزی!",
         "",
-        f"{enemy.emoji} {enemy.name} شکست خورد",
+        f"{enemy.emoji} {enemy.name} شکست خورد!",
         "",
     ]
     if result.xp_gained:
-        lines.append(f"✨ +{to_fa(result.xp_gained)} XP")
+        lines.append(f"⭐ +{to_fa(result.xp_gained)} XP")
     if result.obsidian:
         lines.append(f"🪨 +{to_fa(result.obsidian)}")
     if result.aether:
-        lines.append(f"✨ +{to_fa(result.aether)} اتر")
+        lines.append(f"✨ +{to_fa(result.aether)}")
     for event in result.level_ups:
         lines.append(
             f"🎊 Lv.{to_fa(event.new_level)}!   "
@@ -126,10 +124,9 @@ def defeat_text(result) -> str:
     enemy = result.enemy
     return (
         "💀 شکست خوردی!\n\n"
-        f"🐉 {dragon.name} needs rest.\n"
-        f"{enemy.emoji} {enemy.name} قوی‌تر بود\n\n"
-        f"❤️ {to_fa(dragon.hp)}/{to_fa(dragon.max_hp)}\n\n"
-        "🥩 غذاش بده!"
+        f"{enemy.emoji} {enemy.name} قوی‌تر بود!\n\n"
+        f"🐉 {dragon.name} needs rest\n"
+        f"❤️ {to_fa(dragon.hp)}/{to_fa(dragon.max_hp)} — 🥩 غذاش بده!"
     )
 
 
@@ -137,7 +134,7 @@ def flee_text(dragon_name: str, enemy: Enemy | None) -> str:
     enemy_label = f"{enemy.emoji} {enemy.name}" if enemy is not None else "دشمن"
     return (
         "🏃 فرار کردی!\n\n"
-        f"🐉 {dragon_name} از {enemy_label} فرار کرد\n\n"
+        f"🐉 {dragon_name} ➜ {enemy_label}\n"
         "🚫 بدون جایزه"
     )
 
