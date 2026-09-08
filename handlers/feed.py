@@ -73,7 +73,26 @@ async def feed_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def feed_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle a press on a meat/fish food button."""
+    """Retired: old «غذا بده» food buttons no longer feed.
+
+    Feeding moved to the dragon profile page («اژدها های من» → select a dragon
+    → «🥩 غذا دادن»), so a press on a leftover button from an older message is
+    answered with a pointer instead of changing anything.
+    """
+    query = update.callback_query
+    if query is None or query.from_user is None or query.from_user.is_bot:
+        return
+    await _answer(
+        query,
+        "🍖 غذا دادن حالا از صفحه‌ی اژدها انجام می‌شه: «اژدها های من» → "
+        "انتخاب اژدها → «🥩 غذا دادن».",
+        alert=True,
+    )
+    return
+
+
+async def _legacy_feed_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Previous implementation, kept for reference (not registered)."""
     query = update.callback_query
     if query is None or query.from_user is None or query.from_user.is_bot:
         return

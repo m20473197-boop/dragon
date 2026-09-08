@@ -40,10 +40,11 @@ from game.dragons import DragonService
 from game.eggs import EggService
 from game.feeding import FeedingService
 from game.storage import ColdStorageService
+from game.upgrades import UpgradeService
 from handlers.common import help_command, start_command
 from handlers.eggs import eggs_command
 from handlers.errors import on_error
-from handlers.feed import FEED_PREFIX, feed_callback, feed_command
+from handlers.feed import FEED_PREFIX, feed_callback
 from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.jobs import hatch_sweep, spawn_tick
@@ -52,6 +53,7 @@ from admin.handlers import admin_capture, admin_callback, admin_panel_command, a
 from handlers.dragon_manage import (
     PREFIX as DRAGON_MANAGE_PREFIX,
     dragon_manage_callback,
+    feed_disabled_command,
     my_dragons_menu_command,
 )
 from handlers.mydragons import my_dragons_command
@@ -82,7 +84,8 @@ COMMAND_MAP = {
     # Same command written without the space (also matches the نیم‌فاصله form).
     "اژدهاهای من": my_dragons_menu_command,
     COMMAND_NAME_DRAGON: name_dragon_command,
-    COMMAND_FEED: feed_command,
+    # «غذا بده» is retired — feeding now happens on the dragon profile page.
+    COMMAND_FEED: feed_disabled_command,
     COMMAND_STORAGE: storage_command,
     COMMAND_ADMIN_PANEL: admin_panel_command,
     COMMAND_ADMIN_TEST_EGG: admin_test_egg_command,
@@ -146,6 +149,11 @@ def _setup_shared_objects(application: Application) -> None:
         dragons=application.bot_data["dragon_repo"],
         players=application.bot_data["player_repo"],
         dragon_service=application.bot_data["dragon_service"],
+    )
+    application.bot_data["upgrade_service"] = UpgradeService(
+        dragons=application.bot_data["dragon_repo"],
+        players=application.bot_data["player_repo"],
+        storage=application.bot_data["storage_service"],
     )
     application.bot_data["admin_service"] = AdminService(
         players=application.bot_data["player_repo"],

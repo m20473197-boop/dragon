@@ -127,6 +127,11 @@ class DragonRepository:
                     "SELECT owner_id FROM dragons WHERE is_test = 1"
                 ).fetchall()
             ]
+            # Drop the active-dragon pointer for test dragons about to vanish.
+            c.execute(
+                "UPDATE players SET active_dragon_id = NULL WHERE active_dragon_id IN "
+                "(SELECT id FROM dragons WHERE is_test = 1)"
+            )
             cur = c.execute("DELETE FROM dragons WHERE is_test = 1")
             deleted = cur.rowcount
             # Adjust the per-owner dragon counters for the removed test dragons.

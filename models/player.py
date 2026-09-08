@@ -37,6 +37,7 @@ class Player:
     last_fishing_time: Optional[float] = None
     hunt_count: int = 0
     fishing_count: int = 0
+    active_dragon_id: Optional[int] = None
 
     @classmethod
     def from_row(cls, row) -> "Player":
@@ -52,6 +53,9 @@ class Player:
             last_fishing_time=row["last_fishing_time"],
             hunt_count=row["hunt_count"] if "hunt_count" in keys else 0,
             fishing_count=row["fishing_count"] if "fishing_count" in keys else 0,
+            active_dragon_id=(
+                row["active_dragon_id"] if "active_dragon_id" in keys else None
+            ),
         )
 
 
@@ -217,6 +221,58 @@ class PlayerRepository:
             if cur.rowcount == 1:
                 return now
         return None
+
+    # --- active dragon -----------------------------------------------------
+    def set_active_dragon(self, user_id: int, dragon_id: Optional[int], conn=None) -> bool:
+        """Mark one dragon as the player's active dragon.
+
+        Only dragons owned by ``user_id`` are accepted (the guarded UPDATE
+        checks ownership), which keeps "one active dragon per user" true and
+        prevents pointing at somebody else's dragon. Pass ``None`` to clear.
+        """
+        with db_scope(conn) as c:
+            if dragon_id is None:
+                cur = c.execute(
+                    "UPDATE players SET active_dragon_id = NULL WHERE user_id = ?",
+                    (user_id,),
+                )
+                return cur.rowcount == 1
+            cur = c.execute(
+                """
+                UPDATE players
+                   SET active_dragon_id = ?
+                 WHERE user_id = ?
+                   AND EXISTS (
+                        SELECT 1 FROM dragons WHERE id = ? AND owner_id = ?
+                   )
+                """,
+                (dragon_id, user_id, dragon_id, user_id),
+            )
+            return cur.rowcount == 1
+
+    def get_active_dragon_id(self, user_id: int, conn=None) -> Optional[int]:
+        """The player's active dragon id, or None if unset/no longer owned."""
+        with db_scope(conn) as c:
+            row = c.execute(
+                """
+                SELECT p.active_dragon_id AS id
+                  FROM players p
+                  JOIN dragons d
+                    ON d.id = p.active_dragon_id AND d.owner_id = p.user_id
+                 WHERE p.user_id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+        return row["id"] if row is not None else None
+
+    def clear_active_dragon_if(self, user_id: int, dragon_id: int, conn=None) -> None:
+        """Unset the active dragon when that dragon disappears."""
+        with db_scope(conn) as c:
+            c.execute(
+                "UPDATE players SET active_dragon_id = NULL "
+                " WHERE user_id = ? AND active_dragon_id = ?",
+                (user_id, dragon_id),
+            )
 
     def count_all(self, conn=None) -> int:
         with db_scope(conn) as c:

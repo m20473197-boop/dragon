@@ -165,6 +165,9 @@ class EggService:
                 )
                 # Egg became a dragon: eggs counter down, dragons counter up.
                 self.players.add_resources(egg.owner_id, eggs=-1, dragons=1, conn=conn)
+                # First dragon becomes the owner's active dragon automatically.
+                if self.players.get_active_dragon_id(egg.owner_id, conn=conn) is None:
+                    self.players.set_active_dragon(egg.owner_id, dragon.id, conn=conn)
                 fresh_egg = self.eggs.get(egg.id, conn=conn)
 
             events.append(

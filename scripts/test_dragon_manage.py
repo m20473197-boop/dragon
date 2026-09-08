@@ -26,7 +26,7 @@ from handlers.dragon_manage import (  # noqa: E402
     profile_keyboard,
     profile_text,
     selection_keyboard,
-    upgrade_text,
+    upgrade_menu_text,
 )
 from models.dragon import DragonRepository  # noqa: E402
 from models.player import PlayerRepository  # noqa: E402
@@ -100,7 +100,16 @@ def main() -> None:
 
     # 5. Feeding acts on the SELECTED dragon only.
     players.add_resources(OWNER, meat=20, fish=20)
-    result = feeding.feed(OWNER, "meat", dragon_id=yakh.id)
+    # Newborn dragons are full; let this one get hungry so it will eat.
+    import time as _t
+    from game.dragons import anchor_last_fed_time
+    _d = dragons.get(yakh.id)
+    dragons.update_full_stats(
+        _d.id, level=_d.level, xp=_d.xp, hp=_d.hp, max_hp=_d.max_hp,
+        power=_d.power, hunger=50,
+        last_fed_time=anchor_last_fed_time(50, _t.time()),
+    )
+    result = feeding.feed_unit(OWNER, yakh.id, "meat")
     assert result.success and result.dragon.id == yakh.id
     assert dragons.get(yakh.id).xp > 0
     assert dragons.get(azar.id).xp == 0 and dragons.get(raad.id).xp == 0
@@ -108,7 +117,7 @@ def main() -> None:
 
     # 6. A forged button cannot touch another user's dragon.
     assert dragons.get_owned(foreign.id, OWNER) is None
-    stolen = feeding.feed(OWNER, "meat", dragon_id=foreign.id)
+    stolen = feeding.feed_unit(OWNER, foreign.id, "meat")
     assert stolen.success is False and stolen.reason == "no_dragon"
     assert dragons.get(foreign.id).xp == 0
     print("✓ another user's dragon cannot be fed/modified via a forged callback")
@@ -120,10 +129,10 @@ def main() -> None:
     assert service.rename(OWNER, foreign.id, "هک") is None
     print("✓ rename targets the selected dragon and rejects foreign dragons")
 
-    # 8. Upgrade view reports that dragon's own progress.
-    up = upgrade_text(dragons.get(yakh.id))
-    assert "یخ پنجه" in up and "تجربه" in up
-    print("✓ upgrade page shows the selected dragon's XP progress")
+    # 8. Upgrade view is about that dragon and lists its costs.
+    up = upgrade_menu_text(dragons.get(yakh.id), 10, 10)
+    assert "یخ پنجه" in up and "ارتقا" in up
+    print("✓ upgrade page targets the selected dragon")
 
     # 9. Back button data returns to the selection list.
     back = [b for row in pkb.inline_keyboard for b in row if b.text == "🔙 برگشت"][0]

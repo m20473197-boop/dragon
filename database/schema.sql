@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS players (
     last_fishing_time REAL,                          -- unix timestamp of last fishing
     hunt_count        INTEGER NOT NULL DEFAULT 0,    -- total successful hunts
     fishing_count     INTEGER NOT NULL DEFAULT 0,    -- total successful fishing trips
+    active_dragon_id  INTEGER,                       -- currently selected/active dragon (one per user)
     created_at        TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );

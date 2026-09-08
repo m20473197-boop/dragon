@@ -108,6 +108,51 @@ FOODS: dict[str, dict] = {
     },
 }
 
+# --- Feeding from the dragon profile page -----------------------------------
+# The dragon page feeds in single food *units* (1 meat / 1 fish at a time),
+# unlike the older bulk «غذا بده» command which is now disabled.
+# Each unit restores hunger/HP and grants XP. All values are configurable.
+FOOD_UNITS: dict[str, dict] = {
+    "meat": {"hunger": 10, "hp": 5, "xp": 2},
+    "fish": {"hunger": 8, "hp": 4, "xp": 2},
+}
+
+# Which food the page spends first when the dragon is fed (fallback follows).
+FOOD_PRIORITY: tuple[str, ...] = ("meat", "fish")
+
+# Safety cap for «🍖 سیرش کن» so one press can never consume a whole storage.
+FULL_FEED_MAX_UNITS: int = 50
+
+# --- Dragon upgrades (paid with stored food; no coins/currency) -------------
+# Each upgrade: display text, what it improves, and its cost in meat/fish.
+# Costs and bonuses are configurable; add new entries to extend the system.
+UPGRADES: dict[str, dict] = {
+    "hp": {
+        "name": "افزایش سلامت",
+        "emoji": "❤️",
+        "stat": "max_hp",
+        "amount": 20,
+        "cost": {"meat": 10, "fish": 5},
+        "description": "حداکثر سلامت اژدها را بیشتر می‌کند و کامل درمانش می‌کند.",
+    },
+    "power": {
+        "name": "افزایش قدرت",
+        "emoji": "🔥",
+        "stat": "power",
+        "amount": 5,
+        "cost": {"meat": 8, "fish": 8},
+        "description": "قدرت پایه‌ی اژدها را بیشتر می‌کند.",
+    },
+    "level": {
+        "name": "افزایش سطح",
+        "emoji": "⭐",
+        "stat": "level",
+        "amount": 1,
+        "cost": {"meat": 20, "fish": 20},
+        "description": "یک سطح به اژدها اضافه می‌کند (سلامت و قدرت هم رشد می‌کنند).",
+    },
+}
+
 # Naming flow.
 DRAGON_NAME_MAX_LENGTH: int = 32
 NAME_PROMPT_TIMEOUT_SECONDS: int = 120  # how long the bot waits for a name

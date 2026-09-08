@@ -27,6 +27,7 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
     "players": {
         "hunt_count": "INTEGER NOT NULL DEFAULT 0",
         "fishing_count": "INTEGER NOT NULL DEFAULT 0",
+        "active_dragon_id": "INTEGER",
     },
     "eggs": {
         "is_test": "INTEGER NOT NULL DEFAULT 0",

@@ -41,7 +41,7 @@ Send these as normal messages in the group (no `/`):
 | `ماهیگیری`  | Fishing          | Catch 10–20 🐟 fish. 10% chance to **find an egg** (auto-owned). 10 min cooldown. |
 | `تخم ها`    | My eggs / inventory | Lists your incubating eggs: type + time until hatching, plus dragons/meat/fish. |
 | `اژدهای من` | My dragons       | Shows each dragon's نام (name), نوع (type), ⭐ سطح (level), ✨ تجربه (current/required XP), ❤️ سلامت (HP), 🔥 قدرت (power). |
-| `اژدها های من` | Dragon management | Selection-first panel: one inline button per dragon, then that dragon's profile with 🥩 غذا دادن / ⬆️ ارتقا / ✏️ تغییر نام / 🔙 برگشت. |
+| `اژدها های من` | Dragon management | Selection-first panel: one inline button per dragon, then that dragon's profile with 🥩 غذا دادن / ⬆️ ارتقا / ✏️ تغییر نام / 🔙 برگشت. **All feeding happens here.** |
 | `نام اژدها` | Name dragon      | The bot asks for a name; your next message names your most recent dragon. Sending a game command cancels it. |
 | `غذا بده`   | Feed dragon      | Shows your stored 🥩/🐟 with buttons to feed your newest dragon (consumes food, heals, grants XP, restores hunger). |
 | `سردخانه`   | Cold storage     | Shows your ❄️ سردخانه (cold storage): stored 🥩 گوشت and 🐟 ماهی. |
@@ -300,8 +300,8 @@ level, XP, HP, power, hunger) with the management buttons below it:
 
 | Button | Behaviour |
 |--------|-----------|
-| 🥩 غذا دادن | Meat/fish choices that feed **this** dragon (existing feeding rules and cold-storage costs). |
-| ⬆️ ارتقا | Shows this dragon's XP progress toward its next level and how to earn XP. |
+| 🥩 غذا دادن | Opens the feeding menu for **this** dragon (see below). |
+| ⬆️ ارتقا | Upgrade menu for this dragon: ❤️ HP, 🔥 power, ⭐ level, paid with stored food. |
 | ✏️ تغییر نام | Opens the existing naming prompt bound to **this** dragon id. |
 | 🔙 برگشت | Edits the message back to the dragon selection list. |
 
@@ -314,3 +314,52 @@ only exist on a profile page, never on the selection list.
 Implemented in `handlers/dragon_manage.py`; `FeedingService.feed()` gained an
 optional `dragon_id` argument (default behaviour of `غذا بده` is unchanged).
 Tests: `scripts/test_dragon_manage.py`.
+
+## 🥩 Feeding system (dragon page only)
+
+The standalone `غذا بده` command is **retired**: it now just points players to
+the dragon page, and leftover food buttons from old messages no longer feed.
+Feeding is reached only through `اژدها های من` → select a dragon → `🥩 غذا دادن`,
+which shows `🥩 غذا دادن به (نام اژدها)` plus the current hunger and cold-storage
+contents, with three buttons:
+
+| Button | Behaviour |
+|--------|-----------|
+| 🥩 یک غذا بده | Consumes **one** food unit from cold storage for the selected dragon: hunger up, HP healed if hurt, XP added. Reports `70% → 80%`. |
+| 🍖 سیرش کن | Computes exactly how much the dragon still needs and consumes **only that much** — never more, and it stops at 100%. If storage runs out it feeds what it can and says so. |
+| 🔙 برگشت | Back to the dragon profile. |
+
+If the dragon is already full, both actions answer `🐉 اژدهای تو سیر است!` and
+consume nothing. Per-unit values live in `config.FOOD_UNITS`
+(meat +10 hunger/+5 HP/+2 XP, fish +8/+4/+2), the spend order in
+`FOOD_PRIORITY`, and a `FULL_FEED_MAX_UNITS` safety cap bounds one press.
+
+**Cold storage (❄️ سردخانه)** is unchanged and remains the single food store:
+hunting deposits 🥩 meat, fishing deposits 🐟 fish, and every feed/upgrade
+spends from it with guarded atomic updates.
+
+## ⬆️ Dragon upgrades
+
+`⬆️ ارتقا` on a dragon's page upgrades **only that dragon**, paid with food from
+cold storage (no coins, shops or currency). Defined in `config.UPGRADES`, so
+costs, bonuses and new upgrade types are configuration changes only:
+
+| Upgrade | Effect | Default cost |
+|---------|--------|--------------|
+| ❤️ افزایش سلامت | +20 max HP (and a full heal) | 10 🥩 + 5 🐟 |
+| 🔥 افزایش قدرت | +5 power | 8 🥩 + 8 🐟 |
+| ⭐ افزایش سطح | +1 level (with the usual per-level HP/power gains) | 20 🥩 + 20 🐟 |
+
+Implemented in `game/upgrades.py`; affordability is checked before anything is
+spent, and ownership is enforced on every apply.
+
+## 🎯 Active dragon
+
+`players.active_dragon_id` (additive column, migrated in place) stores **one**
+active dragon per user. Selecting a dragon from the list makes it active — it is
+marked with ✅ in the selection list — and the first dragon to hatch becomes
+active automatically. Setting it is guarded by an ownership check, and the
+pointer is cleared if that dragon is removed. Nothing else depends on it yet;
+it is in place for future features.
+
+Tests: `scripts/test_feeding_v3.py` (feeding, upgrades, active dragon).
