@@ -1,6 +1,8 @@
 """Scheduled background jobs: egg spawning, hatching and expiry.
 
 * ``spawn_tick``  — periodically rolls for a new egg in every active group.
+* ``chest_tick``  — periodically rolls for a random chest in every active
+  group, and expires chests nobody opened in time.
 * ``hatch_sweep`` — periodically hatches due eggs and expires stale unclaimed
   ones, announcing results in the group.
 
@@ -17,10 +19,13 @@ from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
 from config import (
+    CHEST_ACTIVE_WINDOW_SECONDS,
+    CHEST_CHANCE_PER_CHECK,
     SPAWN_ACTIVE_WINDOW_SECONDS,
     SPAWN_CHANCE_PER_CHECK,
 )
 from game.eggs import dragon_display, egg_display
+from handlers.chests import CHEST_TEXT, build_chest_keyboard
 from handlers.spawn import SPAWN_TEXT, build_spawn_keyboard
 from models.egg import Egg
 from models.player import PlayerRepository
@@ -129,3 +134,54 @@ async def hatch_sweep(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     for egg in expired:
         await _sweep_expired_button(context, egg)
+
+
+async def chest_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Try to spawn a random chest in each active group, and expire old ones."""
+    chats_repo = context.bot_data["chat_repo"]
+    chest_service = context.bot_data["chest_service"]
+
+    try:
+        active = chats_repo.active_chats(CHEST_ACTIVE_WINDOW_SECONDS)
+    except Exception:
+        logger.exception("chest_tick: could not load active chats")
+        active = []
+
+    for chat in active:
+        try:
+            if random.random() >= CHEST_CHANCE_PER_CHECK:
+                continue
+            # Groups that already have an unopened chest are skipped atomically.
+            chest = chest_service.spawn_chest(chat.chat_id)
+            if chest is None:
+                continue
+            try:
+                sent = await context.bot.send_message(
+                    chat_id=chat.chat_id,
+                    text=CHEST_TEXT,
+                    reply_markup=build_chest_keyboard(chest.id),
+                )
+                chest_service.chests.set_message_id(chest.id, sent.message_id)
+            except (BadRequest, TelegramError):
+                logger.warning("Could not spawn chest in chat %s", chat.chat_id, exc_info=True)
+        except Exception:
+            logger.exception("chest_tick: failed for chat %s", chat.chat_id)
+
+    # Clean up chests nobody opened: drop their buttons so they look closed.
+    try:
+        expired = chest_service.expire_stale_chests()
+    except Exception:
+        logger.exception("chest_tick: error while expiring chests")
+        expired = []
+
+    for chest in expired:
+        if not chest.message_id:
+            continue
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=chest.group_id, message_id=chest.message_id, reply_markup=None
+            )
+        except (BadRequest, TelegramError):
+            pass
+        except Exception:
+            logger.debug("Unexpected error hiding expired chest button", exc_info=True)

@@ -31,12 +31,14 @@ from config import (
     COMMAND_MY_DRAGONS_MENU,
     COMMAND_NAME_DRAGON,
     COMMAND_STORAGE,
+    CHEST_CHECK_INTERVAL_SECONDS,
     HATCH_SWEEP_INTERVAL_SECONDS,
     SPAWN_CHECK_INTERVAL_SECONDS,
 )
 from game.dragons import DragonService
 from game.eggs import EggService
 from game.feeding import FeedingService
+from game.chests import ChestService
 from game.storage import ColdStorageService
 from game.upgrades import UpgradeService
 from handlers.common import help_command, start_command
@@ -44,7 +46,8 @@ from handlers.eggs import eggs_command
 from handlers.errors import on_error
 from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
-from handlers.jobs import hatch_sweep, spawn_tick
+from handlers.chests import CHEST_PREFIX, open_chest_callback
+from handlers.jobs import chest_tick, hatch_sweep, spawn_tick
 from admin import keyboards as admin_kb
 from admin.handlers import admin_capture, admin_callback, admin_panel_command, admin_test_egg_command
 from handlers.dragon_manage import (
@@ -62,6 +65,7 @@ from handlers.storage import storage_command
 from handlers.tracking import track_from_update
 from admin.service import AdminService
 from models.chat import ChatRepository
+from models.chest import ChestRepository
 from models.dragon import DragonRepository
 from models.egg import EggRepository
 from models.player import PlayerRepository
@@ -121,6 +125,7 @@ def _setup_shared_objects(application: Application) -> None:
     application.bot_data["player_repo"] = PlayerRepository()
     application.bot_data["chat_repo"] = ChatRepository()
     application.bot_data["egg_repo"] = EggRepository()
+    application.bot_data["chest_repo"] = ChestRepository()
     application.bot_data["dragon_repo"] = DragonRepository()
 
     # Cold storage (سردخانه) holds every player's meat and fish. It is shared
@@ -141,6 +146,11 @@ def _setup_shared_objects(application: Application) -> None:
         dragons=application.bot_data["dragon_repo"],
         players=application.bot_data["player_repo"],
         dragon_service=application.bot_data["dragon_service"],
+    )
+    application.bot_data["chest_service"] = ChestService(
+        chests=application.bot_data["chest_repo"],
+        players=application.bot_data["player_repo"],
+        storage=application.bot_data["storage_service"],
     )
     application.bot_data["upgrade_service"] = UpgradeService(
         dragons=application.bot_data["dragon_repo"],
@@ -166,10 +176,12 @@ def _setup_jobs(application: Application) -> None:
         return
     jq.run_repeating(spawn_tick, interval=SPAWN_CHECK_INTERVAL_SECONDS, first=10, name="spawn_tick")
     jq.run_repeating(hatch_sweep, interval=HATCH_SWEEP_INTERVAL_SECONDS, first=15, name="hatch_sweep")
+    jq.run_repeating(chest_tick, interval=CHEST_CHECK_INTERVAL_SECONDS, first=45, name="chest_tick")
     logger.info(
         "Scheduled egg spawner (every %ss) and hatch sweep (every %ss)",
         SPAWN_CHECK_INTERVAL_SECONDS,
-        HATCH_SWEEP_INTERVAL_SECONDS,
+        CHEST_CHECK_INTERVAL_SECONDS,
+    HATCH_SWEEP_INTERVAL_SECONDS,
     )
 
 
@@ -183,6 +195,11 @@ def register_all(application: Application) -> None:
     # Inline-button claim: "claim_egg:<id>"
     application.add_handler(
         CallbackQueryHandler(claim_callback, pattern=rf"^{CLAIM_PREFIX}\d+$")
+    )
+
+    # Inline-button chest opening: "open_chest:<id>"
+    application.add_handler(
+        CallbackQueryHandler(open_chest_callback, pattern=rf"^{CHEST_PREFIX}\d+$")
     )
 
     # Dragon management panel: "dg:<action>[:<dragon_id>...]"

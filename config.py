@@ -176,6 +176,32 @@ FISH_FISH_MAX: int = 20
 HUNT_EGG_CHANCE: float = 0.15
 FISHING_EGG_CHANCE: float = 0.10
 
+# --- Currencies -------------------------------------------------------------
+# Two player currencies, stored on the players table. There is no shop or
+# spending system yet — these are storage + receiving only.
+CURRENCIES: dict[str, dict] = {
+    "obsidian": {"name": "ابسیدین", "emoji": "🪨", "column": "obsidian"},
+    "aether":   {"name": "اتر",     "emoji": "✨", "column": "aether"},
+}
+
+# --- Random chests ----------------------------------------------------------
+# A chest may appear in an active group; the first user to press the button
+# opens it and receives the rewards.
+CHEST_CHECK_INTERVAL_SECONDS: int = 300    # how often the spawner rolls per group
+CHEST_CHANCE_PER_CHECK: float = 0.25       # probability of a chest per check
+CHEST_ACTIVE_WINDOW_SECONDS: int = 2 * 24 * 3600  # only in recently active groups
+CHEST_OPEN_WINDOW_SECONDS: int = 15 * 60   # unopened chests expire after this
+CHEST_SWEEP_INTERVAL_SECONDS: int = 60     # how often expired chests are cleaned
+
+# Chest reward table. Every chest always grants obsidian; the other rewards
+# are rolled independently with their own chance, so aether stays rare.
+CHEST_REWARDS: dict[str, dict] = {
+    "obsidian": {"chance": 1.00, "min": 100, "max": 2000},
+    "aether":   {"chance": 0.15, "min": 1,   "max": 10},
+    "meat":     {"chance": 0.60, "min": 5,   "max": 30},
+    "fish":     {"chance": 0.60, "min": 5,   "max": 30},
+}
+
 # --- Egg spawning in groups -------------------------------------------------
 SPAWN_CHECK_INTERVAL_SECONDS: int = 180   # how often the spawner rolls per group
 SPAWN_CHANCE_PER_CHECK: float = 0.40      # probability of an egg per check

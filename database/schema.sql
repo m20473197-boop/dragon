@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS players (
     hunt_count        INTEGER NOT NULL DEFAULT 0,    -- total successful hunts
     fishing_count     INTEGER NOT NULL DEFAULT 0,    -- total successful fishing trips
     active_dragon_id  INTEGER,                       -- currently selected/active dragon (one per user)
+    obsidian          INTEGER NOT NULL DEFAULT 0,    -- 🪨 ابسیدین (main currency)
+    aether            INTEGER NOT NULL DEFAULT 0,    -- ✨ اتر (rare currency)
     created_at        TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -76,3 +78,20 @@ FOR EACH ROW
 BEGIN
     UPDATE players SET updated_at = datetime('now') WHERE user_id = NEW.user_id;
 END;
+
+-- Random mystery chests spawned in groups.
+CREATE TABLE IF NOT EXISTS chests (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id      INTEGER NOT NULL,                  -- Telegram group chat ID
+    message_id    INTEGER,                           -- spawn message (for button updates)
+    status        TEXT NOT NULL DEFAULT 'available', -- available | opened | expired
+    opened_by     INTEGER,                           -- Telegram user ID of the opener
+    is_test       INTEGER NOT NULL DEFAULT 0,        -- 1 if created via the admin test tools
+    created_time  REAL NOT NULL,
+    opened_time   REAL,
+    reward        TEXT,                              -- JSON snapshot of what was granted
+    FOREIGN KEY (opened_by) REFERENCES players (user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chests_group_status ON chests (group_id, status);
+CREATE INDEX IF NOT EXISTS idx_chests_status_created ON chests (status, created_time);

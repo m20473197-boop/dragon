@@ -20,8 +20,10 @@ from config import (
 )
 from database.connection import get_db
 from game import hatch_override
+from game.chests import ChestService
 from game.eggs import EggService
 from models.chat import ChatRepository
+from models.chest import Chest, ChestRepository
 from models.dragon import DragonRepository
 from models.egg import EggRepository, Egg
 from models.player import PlayerRepository
@@ -37,6 +39,8 @@ class UserInfo:
     dragons: int
     hunt_count: int
     fishing_count: int
+    obsidian: int
+    aether: int
     dragons_list: list
 
 
@@ -48,6 +52,8 @@ class AdminService:
         eggs: Optional[EggRepository] = None,
         dragons: Optional[DragonRepository] = None,
         egg_service: Optional[EggService] = None,
+        chests: Optional[ChestRepository] = None,
+        chest_service: Optional[ChestService] = None,
     ) -> None:
         self.players = players or PlayerRepository()
         self.chats = chats or ChatRepository()
@@ -56,11 +62,16 @@ class AdminService:
         self.egg_service = egg_service or EggService(
             eggs=self.eggs, dragons=self.dragons, players=self.players
         )
+        self.chests = chests or ChestRepository()
+        self.chest_service = chest_service or ChestService(
+            chests=self.chests, players=self.players
+        )
 
     # --- statistics --------------------------------------------------------
     def game_stats(self) -> dict:
         """Aggregate counters across the whole game."""
         total_hunts, total_fishing = self.players.total_counts()
+        total_obsidian, total_aether = self.players.total_currency()
         return {
             "users": self.players.count_all(),
             "eggs": self.eggs.count_all(),
@@ -68,6 +79,10 @@ class AdminService:
             "groups": self.chats.count_all(),
             "hunts": total_hunts,
             "fishing": total_fishing,
+            "chests": self.chests.count_all(),
+            "chests_opened": self.chests.count_opened(),
+            "obsidian": total_obsidian,
+            "aether": total_aether,
         }
 
     # --- user information --------------------------------------------------
@@ -84,6 +99,8 @@ class AdminService:
             dragons=player.dragons,
             hunt_count=player.hunt_count,
             fishing_count=player.fishing_count,
+            obsidian=player.obsidian,
+            aether=player.aether,
             dragons_list=self.dragons.list_by_owner(user_id),
         )
 
@@ -119,6 +136,18 @@ class AdminService:
                 conn=conn,
             )
         return egg
+
+    # --- test chest --------------------------------------------------------
+    def spawn_test_chest(self, chat_id: int, now: Optional[float] = None) -> Optional[Chest]:
+        """Spawn a test chest in the current group.
+
+        Uses the same open/reward pipeline as a random chest; it only differs
+        by being marked ``is_test`` and by ignoring the one-chest-per-group
+        limit so several can be tested at once.
+        """
+        return self.chest_service.spawn_chest(
+            chat_id, now=now, is_test=1, force=True
+        )
 
     # --- test dragon -------------------------------------------------------
     def create_test_dragon(self, owner_id: int, dragon_type: str = "fire") -> Optional[object]:
@@ -163,4 +192,9 @@ class AdminService:
         with get_db() as conn:
             eggs_deleted = self.eggs.delete_test(conn=conn)
             dragons_deleted = self.dragons.delete_test(conn=conn)
-        return {"eggs": eggs_deleted, "dragons": dragons_deleted}
+            chests_deleted = self.chests.delete_test(conn=conn)
+        return {
+            "eggs": eggs_deleted,
+            "dragons": dragons_deleted,
+            "chests": chests_deleted,
+        }

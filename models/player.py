@@ -38,6 +38,8 @@ class Player:
     hunt_count: int = 0
     fishing_count: int = 0
     active_dragon_id: Optional[int] = None
+    obsidian: int = 0
+    aether: int = 0
 
     @classmethod
     def from_row(cls, row) -> "Player":
@@ -56,6 +58,8 @@ class Player:
             active_dragon_id=(
                 row["active_dragon_id"] if "active_dragon_id" in keys else None
             ),
+            obsidian=row["obsidian"] if "obsidian" in keys else 0,
+            aether=row["aether"] if "aether" in keys else 0,
         )
 
 
@@ -81,15 +85,20 @@ class PlayerRepository:
         return Player(user_id=user_id, username=username)
 
     def get_or_create(
-        self, user_id: int, username: Optional[str]
+        self, user_id: int, username: Optional[str], conn=None
     ) -> tuple[Player, bool]:
-        """Return (player, created). Keeps the stored username up to date."""
-        with get_db() as conn:
-            player = self.get(user_id, conn=conn)
+        """Return (player, created). Keeps the stored username up to date.
+
+        Accepts an optional ``conn`` so callers can run it inside an existing
+        transaction (``db_scope`` reuses the connection instead of opening a
+        nested one).
+        """
+        with db_scope(conn) as c:
+            player = self.get(user_id, conn=c)
             if player is None:
-                return self.create(user_id, username, conn=conn), True
-            if player.username != username:
-                self.update_username(user_id, username, conn=conn)
+                return self.create(user_id, username, conn=c), True
+            if username is not None and player.username != username:
+                self.update_username(user_id, username, conn=c)
                 player.username = username
             return player, False
 
@@ -107,6 +116,8 @@ class PlayerRepository:
         fish: int = 0,
         eggs: int = 0,
         dragons: int = 0,
+        obsidian: int = 0,
+        aether: int = 0,
         conn=None,
     ) -> None:
         """Increase resource counters (negative values subtract)."""
@@ -114,13 +125,15 @@ class PlayerRepository:
             c.execute(
                 """
                 UPDATE players
-                   SET meat    = meat + ?,
-                       fish    = fish + ?,
-                       eggs    = eggs + ?,
-                       dragons = dragons + ?
+                   SET meat     = meat + ?,
+                       fish     = fish + ?,
+                       eggs     = eggs + ?,
+                       dragons  = dragons + ?,
+                       obsidian = obsidian + ?,
+                       aether   = aether + ?
                  WHERE user_id = ?
                 """,
-                (meat, fish, eggs, dragons, user_id),
+                (meat, fish, eggs, dragons, obsidian, aether, user_id),
             )
 
     def set_last_action(self, user_id: int, column: str, timestamp: float, conn=None) -> None:
@@ -273,6 +286,15 @@ class PlayerRepository:
                 " WHERE user_id = ? AND active_dragon_id = ?",
                 (user_id, dragon_id),
             )
+
+    def total_currency(self, conn=None) -> tuple[int, int]:
+        """Total (obsidian, aether) held by all players — for admin stats."""
+        with db_scope(conn) as c:
+            row = c.execute(
+                "SELECT COALESCE(SUM(obsidian), 0) AS o, COALESCE(SUM(aether), 0) AS a "
+                "FROM players"
+            ).fetchone()
+        return row["o"], row["a"]
 
     def count_all(self, conn=None) -> int:
         with db_scope(conn) as c:

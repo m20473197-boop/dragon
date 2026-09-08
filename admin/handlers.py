@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 PANEL_TITLE = "🛠 پنل مدیریت اژدها"
 TEST_EGG_TEXT = "🥚 تخم تستی ظاهر شد!"
+TEST_CHEST_TEXT = "🎁 صندوق تستی ظاهر شد!"
 
 
 def _service(context: ContextTypes.DEFAULT_TYPE) -> AdminService:
@@ -38,7 +39,11 @@ def _stats_text(stats: dict) -> str:
         f"🐉 کل اژدهاها: {to_fa(stats['dragons'])}\n"
         f"💬 گروه‌ها: {to_fa(stats['groups'])}\n"
         f"🏹 کل شکارها: {to_fa(stats['hunts'])}\n"
-        f"🎣 کل ماهیگیری‌ها: {to_fa(stats['fishing'])}"
+        f"🎣 کل ماهیگیری‌ها: {to_fa(stats['fishing'])}\n"
+        f"🎁 صندوق‌ها: {to_fa(stats['chests'])} "
+        f"(باز شده: {to_fa(stats['chests_opened'])})\n"
+        f"🪨 کل ابسیدین: {to_fa(stats['obsidian'])}\n"
+        f"✨ کل اتر: {to_fa(stats['aether'])}"
     )
 
 
@@ -52,6 +57,8 @@ def _user_info_text(info) -> str:
         f"🐉 اژدهاها: {to_fa(info.dragons)}",
         f"🥩 گوشت: {to_fa(info.meat)}",
         f"🐟 ماهی: {to_fa(info.fish)}",
+        f"🪨 ابسیدین: {to_fa(info.obsidian)}",
+        f"✨ اتر: {to_fa(info.aether)}",
         f"🏹 شکار: {to_fa(info.hunt_count)}",
         f"🎣 ماهیگیری: {to_fa(info.fishing_count)}",
         "",
@@ -65,6 +72,29 @@ def _user_info_text(info) -> str:
             f"| HP {to_fa(d.hp)}/{to_fa(d.max_hp)} | قدرت {to_fa(d.power)}"
         )
     return "\n".join(lines)
+
+
+async def _spawn_test_chest(
+    context: ContextTypes.DEFAULT_TYPE, chat_id: int, send_to: int | None = None
+):
+    """Spawn an admin test chest and post it with the normal open button."""
+    # Imported lazily to avoid a circular import (handlers <-> admin packages).
+    from handlers.chests import build_chest_keyboard
+
+    service = _service(context)
+    chest = service.spawn_test_chest(chat_id)
+    if chest is None:
+        return None
+    try:
+        sent = await context.bot.send_message(
+            chat_id=send_to or chat_id,
+            text=TEST_CHEST_TEXT,
+            reply_markup=build_chest_keyboard(chest.id),
+        )
+        service.chests.set_message_id(chest.id, sent.message_id)
+    except (BadRequest, TelegramError):
+        logger.warning("Admin test chest: could not send message to %s", chat_id, exc_info=True)
+    return chest
 
 
 # --- entry command ----------------------------------------------------------
@@ -159,6 +189,12 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await _answer(query, "🥚 تخم تست ساخته شد.")
             return
 
+        if action == kb.CB_TEST_CHEST:
+            chat_id = query.message.chat_id if query.message else user_id
+            await _spawn_test_chest(context, chat_id)
+            await _answer(query, "🎁 صندوق تست ساخته شد.")
+            return
+
         if action == kb.CB_TEST_DRAGON:
             await _create_test_dragon_for(query, context)
             return
@@ -186,7 +222,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if action == kb.CB_RESET:
             await _safe_edit(
                 query,
-                "🗑 مطمئنی؟ فقط تخم/اژدهای *تستی* ساخته‌شده توسط ادمین پاک می‌شن.\n"
+                "🗑 مطمئنی؟ فقط تخم/اژدها/صندوق *تستی* ساخته‌شده توسط ادمین پاک می‌شن.\n"
                 "داده‌های واقعی کاربران دست‌نخورده باقی می‌مونه.",
                 kb.reset_confirm_keyboard(),
             )
@@ -199,7 +235,8 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             text = (
                 f"✅ پاک‌سازی انجام شد.\n"
                 f"🥚 تخم تستی حذف‌شده: {to_fa(result['eggs'])}\n"
-                f"🐉 اژدهای تستی حذف‌شده: {to_fa(result['dragons'])}"
+                f"🐉 اژدهای تستی حذف‌شده: {to_fa(result['dragons'])}\n"
+                f"🎁 صندوق تستی حذف‌شده: {to_fa(result['chests'])}"
             )
             await _safe_edit(query, text, kb.panel_keyboard())
             await _answer(query)

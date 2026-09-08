@@ -9,6 +9,7 @@ from admin.permissions import debug_enabled
 PREFIX = "admin:"
 CB_TEST_EGG = "test_egg"
 CB_TEST_DRAGON = "test_dragon"
+CB_TEST_CHEST = "test_chest"
 CB_STATS = "stats"
 CB_USER_INFO = "user_info"
 CB_ADD_FOOD = "add_food"
@@ -30,6 +31,9 @@ def panel_keyboard() -> InlineKeyboardMarkup:
         )
         rows.append(
             [InlineKeyboardButton("🐉 ساخت اژدهای تست", callback_data=f"{PREFIX}{CB_TEST_DRAGON}")]
+        )
+        rows.append(
+            [InlineKeyboardButton("🎁 ساخت صندوق تست", callback_data=f"{PREFIX}{CB_TEST_CHEST}")]
         )
         rows.append(
             [InlineKeyboardButton("🍖 اضافه کردن غذا", callback_data=f"{PREFIX}{CB_ADD_FOOD}")]

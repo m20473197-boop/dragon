@@ -359,3 +359,60 @@ pointer is cleared if that dragon is removed. Nothing else depends on it yet;
 it is in place for future features.
 
 Tests: `scripts/test_feeding_v3.py` (feeding, upgrades, active dragon).
+
+## 💰 Economy: currencies
+
+Every player has two currencies, stored on the `players` table (additive
+columns, migrated in place):
+
+| Currency | Field | Notes |
+|----------|-------|-------|
+| 🪨 ابسیدین (obsidian) | `obsidian` | Main currency |
+| ✨ اتر (aether) | `aether` | Rare currency, kept for future features |
+
+There is **no shop, spending or aether usage** yet — only storage and
+receiving. Balances are visible at the bottom of `سردخانه`:
+
+> ❄️ سردخانه من
+>
+> 🥩 گوشت: ۹ · 🐟 ماهی: ۱۳
+>
+> 💰 دارایی — 🪨 ابسیدین: ۵۰۰ · ✨ اتر: ۵
+
+## 🎁 Random chest system
+
+A `chest_tick` job rolls for a mystery chest in each active group (every
+5 minutes, 25% chance, at most one waiting chest per group). The bot posts:
+
+> 🎁 یک صندوق مرموز پیدا شد!
+
+with a single `[🎁 باز کردن صندوق]` button. The **first** user to press it wins:
+opening is one conditional `UPDATE ... WHERE status='available' AND opened_by
+IS NULL`, so exactly one user can ever open a chest (verified with 12
+simultaneous threads). The button is then removed, and unopened chests expire
+after 15 minutes.
+
+Rewards are rolled per chest from `config.CHEST_REWARDS`:
+
+| Reward | Chance | Amount |
+|--------|--------|--------|
+| 🪨 ابسیدین | always | 100–2000 |
+| ✨ اتر | 15% (rare) | 1–10 |
+| 🥩 گوشت | 60% | 5–30 |
+| 🐟 ماهی | 60% | 5–30 |
+
+Food rewards are deposited **into the cold storage**; currencies go onto the
+player row. Everything (credit + reward snapshot) happens in one transaction,
+so a chest can never pay out twice.
+
+Chests are stored in a new `chests` table: `id`, `group_id`, `message_id`,
+`status` (available/opened/expired), `opened_by`, `created_time`,
+`opened_time`, `reward` (JSON snapshot) and `is_test`.
+
+**Admin support:** the panel gained `🎁 ساخت صندوق تست` (posts a real, openable
+test chest marked `is_test`), game stats now report total/opened chests and the
+total obsidian/aether in circulation, user info shows a player's balances, and
+`🗑 پاک کردن اطلاعات تست` also removes test chests only.
+
+Code: `models/chest.py`, `game/chests.py`, `handlers/chests.py`, job
+`chest_tick` in `handlers/jobs.py`. Tests: `scripts/test_chests.py`.
