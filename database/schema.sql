@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS eggs (
     spawn_time  REAL NOT NULL,
     claim_time  REAL,
     hatch_time  REAL,                               -- set when claimed (spawn_time for found eggs)
+    delete_after REAL,                              -- when the message must be deleted (V5)
     FOREIGN KEY (owner_id) REFERENCES players (user_id)
 );
 
@@ -90,6 +91,7 @@ CREATE TABLE IF NOT EXISTS chests (
     is_test       INTEGER NOT NULL DEFAULT 0,        -- 1 if created via the admin test tools
     created_time  REAL NOT NULL,
     opened_time   REAL,
+    delete_after  REAL,                              -- when the message must be deleted (V5)
     reward        TEXT,                              -- JSON snapshot of what was granted
     FOREIGN KEY (opened_by) REFERENCES players (user_id)
 );

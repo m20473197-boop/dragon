@@ -33,6 +33,7 @@ from config import (
     COMMAND_MY_DRAGONS_MENU,
     COMMAND_NAME_DRAGON,
     COMMAND_STORAGE,
+    CLEANUP_SWEEP_INTERVAL_SECONDS,
     CHEST_CHECK_INTERVAL_SECONDS,
     HATCH_SWEEP_INTERVAL_SECONDS,
     SPAWN_CHECK_INTERVAL_SECONDS,
@@ -56,6 +57,7 @@ from handlers.errors import on_error
 from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.chests import CHEST_PREFIX, open_chest_callback
+from handlers.cleanup import cleanup_tick
 from handlers.jobs import chest_tick, hatch_sweep, spawn_tick
 from handlers.market import (
     PREFIX as MARKET_PREFIX,
@@ -205,12 +207,21 @@ def _setup_jobs(application: Application) -> None:
     jq.run_repeating(spawn_tick, interval=SPAWN_CHECK_INTERVAL_SECONDS, first=10, name="spawn_tick")
     jq.run_repeating(hatch_sweep, interval=HATCH_SWEEP_INTERVAL_SECONDS, first=15, name="hatch_sweep")
     jq.run_repeating(chest_tick, interval=CHEST_CHECK_INTERVAL_SECONDS, first=45, name="chest_tick")
+    # Deletes expired / already-claimed egg and chest messages. Deadlines are
+    # read from the database, so cleanups pending before a restart still run.
+    jq.run_repeating(
+        cleanup_tick,
+        interval=CLEANUP_SWEEP_INTERVAL_SECONDS,
+        first=20,
+        name="cleanup_tick",
+    )
     logger.info(
-        "Scheduled egg spawner (every %ss), hatch sweep (every %ss) "
-        "and chest spawner (every %ss)",
+        "Scheduled egg spawner (every %ss), hatch sweep (every %ss), "
+        "chest spawner (every %ss) and message cleanup (every %ss)",
         SPAWN_CHECK_INTERVAL_SECONDS,
         HATCH_SWEEP_INTERVAL_SECONDS,
         CHEST_CHECK_INTERVAL_SECONDS,
+        CLEANUP_SWEEP_INTERVAL_SECONDS,
     )
 
 

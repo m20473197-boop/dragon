@@ -1,4 +1,13 @@
-"""Egg spawning messages, inline keyboard and the claim callback."""
+"""Egg spawning message, inline keyboard and the claim callback.
+
+An egg is announced with ONE message carrying a single button. The first user
+to press it collects the egg, and that same message is **edited in place**
+into the result (no second message is ever sent) with its button removed, so
+the egg can never be collected twice and the group is not spammed.
+
+The result message is temporary: a deletion deadline is stored on the egg row
+so ``handlers.cleanup`` removes it a few minutes later, even across a restart.
+"""
 from __future__ import annotations
 
 import logging
@@ -7,15 +16,16 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
-from game.eggs import egg_display
+from handlers.cleanup import deletion_deadline
 
 logger = logging.getLogger(__name__)
 
 # Callback data looks like "claim_egg:42".
 CLAIM_PREFIX = "claim_egg:"
 
-SPAWN_TEXT = "🥚 تخم اژدها پیدا شد!"
-CLAIM_BUTTON_TEXT = "🥚 نگهداری"
+SPAWN_TEXT = "🥚 یک تخم اژدها پیدا شد!"
+CLAIM_BUTTON_TEXT = "🥚 نگهداری از تخم"
+CLAIMED_TITLE = "🥚 تخم برداشته شد!"
 
 
 def build_spawn_keyboard(egg_id: int) -> InlineKeyboardMarkup:
@@ -30,6 +40,50 @@ async def _safe_answer(query, text: str | None = None, alert: bool = False) -> N
         await query.answer(text, show_alert=alert)
     except (BadRequest, TelegramError):
         pass
+
+
+async def _edit_egg_message(
+    context: ContextTypes.DEFAULT_TYPE, query, egg, text: str
+) -> bool:
+    """Rewrite the egg's own message with ``text`` and remove its button.
+
+    Editing through the callback query is tried first (it always targets the
+    exact message that was pressed); the ``eggs.message_id`` stored at spawn
+    time is the fallback. Failures are logged, never raised — the egg is
+    already claimed in the database, so a failed edit must break nothing.
+    """
+    try:
+        await query.edit_message_text(text, parse_mode="HTML", reply_markup=None)
+        return True
+    except BadRequest as exc:
+        if "not modified" in str(exc).lower():
+            return True
+        logger.warning("Could not edit egg %s message: %s", egg.id, exc)
+    except TelegramError:
+        logger.warning("Could not edit egg %s message", egg.id, exc_info=True)
+    except Exception:
+        logger.exception("Unexpected error editing egg %s message", egg.id)
+
+    if not getattr(egg, "message_id", None):
+        logger.warning("Egg %s has no stored message to edit; result not shown", egg.id)
+        return False
+    try:
+        await context.bot.edit_message_text(
+            chat_id=egg.chat_id,
+            message_id=egg.message_id,
+            text=text,
+            parse_mode="HTML",
+            reply_markup=None,
+        )
+        return True
+    except (BadRequest, TelegramError):
+        logger.warning(
+            "Fallback edit of egg %s (chat %s, message %s) failed",
+            egg.id, egg.chat_id, egg.message_id, exc_info=True,
+        )
+    except Exception:
+        logger.exception("Unexpected error in fallback edit of egg %s", egg.id)
+    return False
 
 
 async def claim_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -56,24 +110,22 @@ async def claim_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         if claimed is not None:
             # This user won the race.
-            emoji, name = egg_display(claimed.egg_type)
             await _safe_answer(query, "🎉 مال تو شد!")
 
-            # Remove the button so nobody else can press it.
-            try:
-                await query.edit_message_reply_markup(reply_markup=None)
-            except (BadRequest, TelegramError):
-                pass  # message unchanged / too old / missing — not fatal
-
-            chat_id = query.message.chat_id if query.message is not None else user.id
+            # Edit the ORIGINAL spawn message into the result and drop its
+            # button, instead of sending a new message.
             mention = user.mention_html(user.full_name or f"کاربر {user.id}")
-            text = f"🥚 تخم برداشته شد!\n\n👤 {mention}\n{emoji} {name}\n⏳ در حال پرورش..."
+            text = f"{CLAIMED_TITLE}\n\n👤 بازیکن: {mention}"
+            await _edit_egg_message(context, query, claimed, text)
+
+            # Schedule the result message for deletion (persisted, so it also
+            # happens if the bot restarts in the meantime).
             try:
-                await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
-            except (BadRequest, TelegramError):
-                # Could not post to the group (bot removed / blocked) — the egg
-                # is already safely claimed, so just log and move on.
-                logger.warning("Could not announce claim for egg %s", egg_id, exc_info=True)
+                egg_service.eggs.set_delete_after(claimed.id, deletion_deadline())
+            except Exception:
+                logger.warning(
+                    "Could not schedule cleanup for egg %s", claimed.id, exc_info=True
+                )
         else:
             # Someone else won, or the egg expired.
             if current is not None and current.owner_id is not None:

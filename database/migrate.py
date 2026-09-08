@@ -45,6 +45,12 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
     },
     "eggs": {
         "is_test": "INTEGER NOT NULL DEFAULT 0",
+        # V5: absolute deadline for deleting this egg's group message.
+        "delete_after": "REAL",
+    },
+    "chests": {
+        # V5: absolute deadline for deleting this chest's group message.
+        "delete_after": "REAL",
     },
     "dragons": {
         "name": f"TEXT NOT NULL DEFAULT '{DEFAULT_DRAGON_NAME}'",

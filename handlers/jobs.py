@@ -7,6 +7,9 @@
 * ``hatch_sweep`` — periodically hatches due eggs and expires stale unclaimed
   ones, announcing results in the group.
 
+Expired eggs and chests are *deleted* from the group (not merely stripped of
+their button) and removed from play, so nothing stays around permanently.
+
 Each per-chat / per-egg step is isolated in its own try/except so a single
 failure (e.g. the bot was removed from one group) never aborts the whole sweep.
 """
@@ -16,7 +19,6 @@ import html
 import logging
 import random
 
-from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
 from config import (
@@ -28,6 +30,7 @@ from config import (
 from game import spawn_settings
 from game.eggs import dragon_display, egg_display
 from handlers.chests import CHEST_TEXT, build_chest_keyboard, safe_send_message
+from handlers.cleanup import delete_message
 from handlers.spawn import SPAWN_TEXT, build_spawn_keyboard
 from models.egg import Egg
 from models.player import PlayerRepository
@@ -117,18 +120,20 @@ async def _announce_hatching(context: ContextTypes.DEFAULT_TYPE, event) -> None:
         logger.warning("Could not announce hatching in chat %s", event.chat_id)
 
 
-async def _sweep_expired_button(context: ContextTypes.DEFAULT_TYPE, egg: Egg) -> None:
-    """Remove the claim button from an expired egg's spawn message."""
+async def _sweep_expired_egg(context: ContextTypes.DEFAULT_TYPE, egg: Egg) -> None:
+    """Delete the message of an egg nobody collected in time.
+
+    The egg row is already marked expired by the service, so the egg is out of
+    play; here we only remove its now-dead message from the group.
+    """
     if not egg.message_id:
         return
+    egg_service = context.bot_data["egg_service"]
     try:
-        await context.bot.edit_message_reply_markup(
-            chat_id=egg.chat_id, message_id=egg.message_id, reply_markup=None
-        )
-    except (BadRequest, TelegramError):
-        pass  # message deleted / too old / not found — ignore
+        await delete_message(context, egg.chat_id, egg.message_id)
+        egg_service.eggs.clear_message(egg.id)
     except Exception:
-        logger.debug("Unexpected error hiding expired button", exc_info=True)
+        logger.exception("Could not delete expired egg %s message", egg.id)
 
 
 async def hatch_sweep(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -154,7 +159,7 @@ async def hatch_sweep(context: ContextTypes.DEFAULT_TYPE) -> None:
         expired = []
 
     for egg in expired:
-        await _sweep_expired_button(context, egg)
+        await _sweep_expired_egg(context, egg)
 
 
 async def chest_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -196,7 +201,8 @@ async def chest_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception:
             logger.exception("chest_tick: failed for chat %s", chat.chat_id)
 
-    # Clean up chests nobody opened: drop their buttons so they look closed.
+    # Chests nobody opened are removed from play and their message deleted,
+    # so a chest never stays in the group permanently.
     try:
         expired = chest_service.expire_stale_chests()
     except Exception:
@@ -207,10 +213,7 @@ async def chest_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
         if not chest.message_id:
             continue
         try:
-            await context.bot.edit_message_reply_markup(
-                chat_id=chest.group_id, message_id=chest.message_id, reply_markup=None
-            )
-        except (BadRequest, TelegramError):
-            pass
+            await delete_message(context, chest.group_id, chest.message_id)
+            chest_service.chests.clear_message(chest.id)
         except Exception:
-            logger.debug("Unexpected error hiding expired chest button", exc_info=True)
+            logger.exception("Could not delete expired chest %s message", chest.id)

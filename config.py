@@ -196,8 +196,30 @@ CURRENCIES: dict[str, dict] = {
 CHEST_CHECK_INTERVAL_SECONDS: int = 300    # how often the spawner rolls per group
 CHEST_CHANCE_PER_CHECK: float = 0.25       # probability of a chest per check
 CHEST_ACTIVE_WINDOW_SECONDS: int = 2 * 24 * 3600  # only in recently active groups
-CHEST_OPEN_WINDOW_SECONDS: int = 15 * 60   # unopened chests expire after this
 CHEST_SWEEP_INTERVAL_SECONDS: int = 60     # how often expired chests are cleaned
+
+# --- Temporary messages (Version 5) -----------------------------------------
+# Chests and eggs are temporary: if nobody claims them, their message is
+# DELETED and the reward is removed from play. After a successful claim the
+# result message is also deleted, so old messages never pile up in a group.
+#
+# All three timers are stored as absolute deadlines in the database, so they
+# survive a bot restart, and every group is swept independently.
+CHEST_EXPIRE_TIME: int = int(
+    os.environ.get("DRAGON_CHEST_EXPIRE_TIME", 30 * 60)
+)   # unopened chest: delete the message and drop the chest
+EGG_EXPIRE_TIME: int = int(
+    os.environ.get("DRAGON_EGG_EXPIRE_TIME", 30 * 60)
+)   # uncollected egg: delete the message and drop the egg
+MESSAGE_DELETE_TIME: int = int(
+    os.environ.get("DRAGON_MESSAGE_DELETE_TIME", 5 * 60)
+)   # after a successful open/collect, delete the result message
+CLEANUP_SWEEP_INTERVAL_SECONDS: int = 30   # how often deadlines are checked
+
+# The window in which a chest can still be opened is exactly its lifetime, so
+# the button never outlives the message (kept under the historical name that
+# the chest service and tests already use).
+CHEST_OPEN_WINDOW_SECONDS: int = CHEST_EXPIRE_TIME
 
 # Chest reward table. Every chest always grants obsidian; the other rewards
 # are rolled independently with their own chance, so aether stays rare.
@@ -254,7 +276,9 @@ EGG_SPAWN_INTERVAL: int = int(
     os.environ.get("DRAGON_EGG_SPAWN_INTERVAL", 2 * 60 * 60)
 )
 SPAWN_ACTIVE_WINDOW_SECONDS: int = 2 * 24 * 3600  # only spawn in recently active groups
-CLAIM_WINDOW_SECONDS: int = 15 * 60       # unclaimed eggs disappear after this
+# An egg can be collected for exactly as long as its message lives, so the
+# button never outlives the message (see EGG_EXPIRE_TIME above).
+CLAIM_WINDOW_SECONDS: int = EGG_EXPIRE_TIME
 HATCH_SWEEP_INTERVAL_SECONDS: int = 30    # how often eggs are hatched/expired
 
 # --- Egg types --------------------------------------------------------------

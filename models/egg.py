@@ -41,6 +41,7 @@ class Egg:
     hatch_time: Optional[float] = None
     message_id: Optional[int] = None
     is_test: int = 0
+    delete_after: Optional[float] = None
 
     @classmethod
     def from_row(cls, row) -> "Egg":
@@ -55,6 +56,9 @@ class Egg:
             hatch_time=row["hatch_time"],
             message_id=row["message_id"],
             is_test=row["is_test"] if "is_test" in row.keys() else 0,
+            delete_after=(
+                row["delete_after"] if "delete_after" in row.keys() else None
+            ),
         )
 
 
@@ -171,6 +175,64 @@ class EggRepository:
                 "UPDATE eggs SET message_id = ? WHERE id = ?",
                 (message_id, egg_id),
             )
+
+    # --- V5: temporary messages -------------------------------------------
+    def set_delete_after(self, egg_id: int, delete_after: Optional[float], conn=None) -> None:
+        """Store the absolute time at which this egg's message must go.
+
+        Persisting a deadline (instead of scheduling an in-memory timer) is
+        what makes the cleanup survive a restart: the sweep simply asks the
+        database which messages are now due.
+        """
+        with db_scope(conn) as c:
+            c.execute(
+                "UPDATE eggs SET delete_after = ? WHERE id = ?",
+                (delete_after, egg_id),
+            )
+
+    def find_due_deletion(self, now: Optional[float] = None, conn=None) -> list[Egg]:
+        """Eggs whose message deadline has passed and still have a message."""
+        now = now if now is not None else time.time()
+        with db_scope(conn) as c:
+            rows = c.execute(
+                """
+                SELECT * FROM eggs
+                 WHERE delete_after IS NOT NULL
+                   AND delete_after <= ?
+                   AND message_id IS NOT NULL
+                 ORDER BY delete_after
+                """,
+                (now,),
+            ).fetchall()
+        return [Egg.from_row(r) for r in rows]
+
+    def clear_message(self, egg_id: int, conn=None) -> None:
+        """Forget the message (it was deleted) and clear the deadline."""
+        with db_scope(conn) as c:
+            c.execute(
+                "UPDATE eggs SET message_id = NULL, delete_after = NULL WHERE id = ?",
+                (egg_id,),
+            )
+
+    def expire_available_older_than(self, cutoff: float, conn=None) -> list[Egg]:
+        """Atomically expire unclaimed eggs that spawned before ``cutoff``.
+
+        Returns the rows as they were BEFORE the update (so the caller still
+        knows which message to delete). Flipping the status first means a
+        second sweep cannot return the same egg twice.
+        """
+        with db_scope(conn) as c:
+            rows = c.execute(
+                "SELECT * FROM eggs WHERE status = ? AND spawn_time <= ?",
+                (STATUS_AVAILABLE, cutoff),
+            ).fetchall()
+            eggs = [Egg.from_row(r) for r in rows]
+            if eggs:
+                c.execute(
+                    "UPDATE eggs SET status = ? WHERE status = ? AND spawn_time <= ?",
+                    (STATUS_EXPIRED, STATUS_AVAILABLE, cutoff),
+                )
+        return eggs
 
     def count_by_chat_status(self, chat_id: int, status: str, conn=None) -> int:
         with db_scope(conn) as c:

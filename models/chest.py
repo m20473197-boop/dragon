@@ -10,6 +10,7 @@ chest can only ever be opened once by one user.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -32,6 +33,7 @@ class Chest:
     opened_time: Optional[float] = None
     reward: Optional[str] = None
     is_test: int = 0
+    delete_after: Optional[float] = None
 
     @classmethod
     def from_row(cls, row) -> "Chest":
@@ -46,6 +48,7 @@ class Chest:
             opened_time=row["opened_time"],
             reward=row["reward"] if "reward" in keys else None,
             is_test=row["is_test"] if "is_test" in keys else 0,
+            delete_after=row["delete_after"] if "delete_after" in keys else None,
         )
 
     def reward_dict(self) -> dict:
@@ -170,6 +173,43 @@ class ChestRepository:
             c.execute(
                 "UPDATE chests SET message_id = ? WHERE id = ?",
                 (message_id, chest_id),
+            )
+
+    # --- V5: temporary messages -------------------------------------------
+    def set_delete_after(self, chest_id: int, delete_after: Optional[float], conn=None) -> None:
+        """Store the absolute time at which this chest's message must go.
+
+        The deadline lives in the database rather than in an in-memory timer,
+        so pending cleanups are still honoured after a restart.
+        """
+        with db_scope(conn) as c:
+            c.execute(
+                "UPDATE chests SET delete_after = ? WHERE id = ?",
+                (delete_after, chest_id),
+            )
+
+    def find_due_deletion(self, now: Optional[float] = None, conn=None) -> list[Chest]:
+        """Chests whose message deadline has passed and still have a message."""
+        now = now if now is not None else time.time()
+        with db_scope(conn) as c:
+            rows = c.execute(
+                """
+                SELECT * FROM chests
+                 WHERE delete_after IS NOT NULL
+                   AND delete_after <= ?
+                   AND message_id IS NOT NULL
+                 ORDER BY delete_after
+                """,
+                (now,),
+            ).fetchall()
+        return [Chest.from_row(r) for r in rows]
+
+    def clear_message(self, chest_id: int, conn=None) -> None:
+        """Forget the message (it was deleted) and clear the deadline."""
+        with db_scope(conn) as c:
+            c.execute(
+                "UPDATE chests SET message_id = NULL, delete_after = NULL WHERE id = ?",
+                (chest_id,),
             )
 
     def expire_older_than(self, cutoff: float, conn=None) -> list[Chest]:

@@ -6,6 +6,10 @@ to press it opens the chest and receives the rewards.
 The original chest message is then **edited in place** into the result (opener
 + rewards) and its button is removed — no second message is sent, so the group
 is not spammed and a chest can never be pressed twice.
+
+Chests are temporary: an unopened chest is deleted after ``CHEST_EXPIRE_TIME``
+and an opened one after ``MESSAGE_DELETE_TIME``. Both deadlines are stored on
+the chest row, so they survive a restart (see handlers.cleanup).
 """
 from __future__ import annotations
 
@@ -16,6 +20,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
 from telegram.error import BadRequest, Forbidden, NetworkError, RetryAfter, TelegramError, TimedOut
 from telegram.ext import ContextTypes
 
+from handlers.cleanup import deletion_deadline
 from utils.text import reward_card
 
 logger = logging.getLogger(__name__)
@@ -224,6 +229,15 @@ async def open_chest_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         mention = user.mention_html(user.full_name or f"کاربر {user.id}")
         text = format_rewards(result.rewards, opener=mention)
         await _edit_chest_message(context, query, chest_id, text, chest=result.chest)
+
+        # The result message is temporary: store its deletion deadline so the
+        # cleanup sweep removes it later, even if the bot restarts first.
+        try:
+            chest_service.chests.set_delete_after(chest_id, deletion_deadline())
+        except Exception:
+            logger.warning(
+                "Could not schedule cleanup for chest %s", chest_id, exc_info=True
+            )
     except Exception:
         logger.exception("Error while opening chest %s", chest_id)
         await _safe_answer(query, "❌ خطا! دوباره بزن.", alert=True)

@@ -734,3 +734,52 @@ a battle win and an admin grant look identical:
 
 Zero amounts are skipped and the order (`⭐ 🪨 ✨ 🥩 🐟`) is fixed, so rewards
 never shuffle between messages. `scripts/test_messages.py` pins both formats.
+
+## ⏳ Temporary eggs & chests (Version 5)
+
+Eggs and chests no longer stay in a group forever. Both follow the same
+lifecycle, and both use **one message only**.
+
+**Egg spawns** — a single message with a single button:
+
+```
+🥚 یک تخم اژدها پیدا شد!
+[🥚 نگهداری از تخم]
+```
+
+**A player collects it** — the *same* message is edited in place, the button is
+removed and no new message is sent:
+
+```
+🥚 تخم برداشته شد!
+
+👤 بازیکن: Ali
+```
+
+Chests behave identically (`🎁 صندوق پیدا شد!` → the reward card).
+
+### Timers
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `CHEST_EXPIRE_TIME` | 30 min | Unopened chest: message deleted, chest removed from play |
+| `EGG_EXPIRE_TIME` | 30 min | Uncollected egg: message deleted, egg removed from play |
+| `MESSAGE_DELETE_TIME` | 5 min | After a successful open/collect, the result message is deleted |
+
+Each can be overridden with the `DRAGON_CHEST_EXPIRE_TIME`,
+`DRAGON_EGG_EXPIRE_TIME` and `DRAGON_MESSAGE_DELETE_TIME` environment
+variables. `CHEST_OPEN_WINDOW_SECONDS` and `CLAIM_WINDOW_SECONDS` are derived
+from the two expire times, so a button can never outlive its message.
+
+### How the timers survive a restart
+
+Deadlines are **absolute timestamps stored in the database** (`eggs.delete_after`
+and `chests.delete_after`), not in-memory jobs. The `cleanup_tick` job runs
+every 30 s and simply asks the database which messages are now due — so a
+cleanup scheduled before a reboot still happens afterwards. Both columns are
+added to existing databases by `database/migrate.py`.
+
+Duplicate claims remain impossible: collecting an egg and opening a chest are
+each a single conditional `UPDATE`, so exactly one user can ever win. Every
+group is swept independently, and a failure in one group never aborts the
+sweep. Covered by `scripts/test_temporary.py` (43 checks).
