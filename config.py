@@ -34,7 +34,6 @@ COMMAND_NAME_DRAGON = "نام اژدها"
 COMMAND_STORAGE = "سردخانه"
 COMMAND_MARKET = "بازار"
 COMMAND_TREASURY = "خزانه"   # read-only inventory view
-COMMAND_BATTLE = "مبارزه"
 COMMAND_ADMIN_PANEL = "پنل مدیریت"
 COMMAND_ADMIN_TEST_EGG = "ساخت تخم تست"
 COMMAND_ADMIN_ADD_FOOD = "اضافه غذا"
@@ -397,64 +396,64 @@ def require_token() -> str:
     return BOT_TOKEN
 
 
-# --- Combat (Version 4: basic PvE) ------------------------------------------
-# Enemies a dragon can meet with the «مبارزه» command. One is picked at random
-# (weighted). Everything here is configuration, so new enemies can be added
-# without touching the combat code. No PvP, bosses, equipment or skills.
-ENEMIES: dict[str, dict] = {
-    "wolf": {
-        "name": "گرگ وحشی",
-        "emoji": "🐺",
-        "max_hp": 80,
-        "attack_power": 10,
-        "reward_min": 60,
-        "reward_max": 140,
-        "xp_min": 15,
-        "xp_max": 25,
-        "weight": 45,
-    },
-    "forest_monster": {
-        "name": "هیولای جنگل",
-        "emoji": "👹",
-        "max_hp": 120,
-        "attack_power": 16,
-        "reward_min": 120,
-        "reward_max": 260,
-        "xp_min": 25,
-        "xp_max": 40,
-        "weight": 35,
-    },
-    "giant_scorpion": {
-        "name": "عقرب غول پیکر",
-        "emoji": "🦂",
-        "max_hp": 100,
-        "attack_power": 22,
-        "reward_min": 150,
-        "reward_max": 320,
-        "xp_min": 30,
-        "xp_max": 50,
-        "weight": 20,
-    },
-}
+# --- Arena PvP (Version 7) --------------------------------------------------
+# The old PvE enemy battles (wolf / forest monster / giant scorpion) were
+# removed in V7. The arena is player-versus-player only: a dragon fights
+# another *player's* dragon. No NPC enemies, no skills, no equipment.
+COMMAND_ARENA_SLASH = "arena"      # /arena (slash command, per the spec)
 
-# Damage rolling. The dragon hits for its (hunger-adjusted) power plus a random
-# bonus; the enemy hits for its attack power with a small random spread.
-BATTLE_DAMAGE_BONUS_MIN: int = 0
-BATTLE_DAMAGE_BONUS_MAX: int = 10
-BATTLE_ENEMY_DAMAGE_SPREAD: int = 3     # enemy damage is power ± this
-BATTLE_MIN_DAMAGE: int = 1              # a hit always does at least this much
+# Matchmaking. An opponent is only acceptable when its dragon is close enough
+# in strength, measured by a single "rating" (see game/arena.py::rating).
+ARENA_MATCH_LEVEL_SPREAD: int = 3       # |level difference| allowed
+ARENA_MATCH_RATING_RATIO: float = 0.25  # |rating difference| / stronger rating
+# If nobody matches inside the strict window, the search widens once so small
+# groups can still play. It never matches wildly unfair pairs.
+ARENA_MATCH_WIDE_LEVEL_SPREAD: int = 6
+ARENA_MATCH_WIDE_RATING_RATIO: float = 0.50
+# An opponent must have been active at least this recently to be matched.
+ARENA_OPPONENT_MAX_IDLE_SECONDS: int = 14 * 24 * 3600
 
-# The dragon never dies. When its HP would drop to or below this value it is
-# "weakened": HP is clamped here and the battle is lost.
-BATTLE_DRAGON_MIN_HP: int = 1
-# A dragon at or below this HP is too weak to start a new battle and must rest.
-BATTLE_MIN_HP_TO_FIGHT: int = 10
+# Damage per turn: power * random factor, then a small flat spread. Level
+# contributes a light bonus so a higher level is an edge, not a guarantee.
+ARENA_DAMAGE_POWER_MIN_FACTOR: float = 0.18
+ARENA_DAMAGE_POWER_MAX_FACTOR: float = 0.42
+ARENA_DAMAGE_LEVEL_BONUS: float = 0.5   # + level * this
+ARENA_MIN_DAMAGE: int = 1               # a hit always does at least this much
+ARENA_CRIT_CHANCE: float = 0.12         # 💥 critical hit chance
+ARENA_CRIT_MULTIPLIER: float = 1.6
+# Safety valve so a fight always terminates even with tanky dragons.
+ARENA_MAX_TURNS: int = 60
 
-# Rare bonus currency on a win.
-BATTLE_AETHER_CHANCE: float = 0.12
-BATTLE_AETHER_MIN: int = 1
-BATTLE_AETHER_MAX: int = 3
+# Arena HP is a *simulation* value derived from the dragon's real stats. The
+# stored dragon HP is never changed by the arena — dragons cannot die here.
+ARENA_HP_LEVEL_BONUS: int = 0           # arena uses the dragon's real max_hp
 
-# Abandoned battles (nobody pressed a button) are reclaimed after this, so a
-# player is never locked out of «مبارزه» by a forgotten fight.
-BATTLE_STALE_SECONDS: int = 30 * 60
+# Rewards. The winner gets arena points, obsidian and XP; the loser keeps a
+# small consolation so playing is never a pure loss.
+ARENA_WIN_POINTS: int = 25
+ARENA_LOSS_POINTS: int = 10             # points *subtracted* on a loss
+ARENA_POINTS_FLOOR: int = 0             # arena_points never drops below this
+ARENA_WIN_OBSIDIAN_MIN: int = 400
+ARENA_WIN_OBSIDIAN_MAX: int = 600
+ARENA_WIN_XP: int = 30
+ARENA_LOSS_OBSIDIAN: int = 100
+ARENA_LOSS_XP: int = 10
+
+# Daily battle limit (anti-farming). Counter resets on a new UTC day.
+ARENA_DAILY_BATTLE_LIMIT: int = 10
+
+# Leaderboard size.
+ARENA_RANKING_SIZE: int = 10
+
+# Leagues, ordered from lowest to highest. A player is in the highest league
+# whose ``min_points`` they have reached.
+ARENA_LEAGUES: tuple[dict, ...] = (
+    {"key": "bronze",   "emoji": "🥉", "name": "برنز",   "min_points": 0},
+    {"key": "silver",   "emoji": "🥈", "name": "نقره",   "min_points": 500},
+    {"key": "gold",     "emoji": "🥇", "name": "طلا",    "min_points": 1500},
+    {"key": "diamond",  "emoji": "💎", "name": "الماس",  "min_points": 3000},
+    {"key": "legend",   "emoji": "🐉", "name": "افسانه", "min_points": 6000},
+)
+
+# Medals for the top three ranks in the leaderboard.
+ARENA_RANK_MEDALS: tuple[str, ...] = ("🥇", "🥈", "🥉")

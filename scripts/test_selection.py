@@ -16,7 +16,7 @@ os.environ["DRAGON_DB_PATH"] = os.path.join(tempfile.mkdtemp(), "selection.db")
 
 from database.init_db import init_db  # noqa: E402
 from database.migrate import run_migrations  # noqa: E402
-from game.combat import CombatService  # noqa: E402
+from game.arena import ArenaService  # noqa: E402
 from game.selection import (  # noqa: E402
     clear_selected_dragon,
     get_selected_dragon,
@@ -232,21 +232,19 @@ def main():
           players.get_active_dragon_id(UID) == azar.id
           and any("فعاله" in t for t in q.toasts), q.toasts)
 
-    # --- CASE 4: combat reads only active_dragon_id --------------------------
-    combat = CombatService(
-        battles=app.bot_data["battle_repo"], dragons=dragons, players=players,
+    # --- CASE 4: the arena reads only active_dragon_id -----------------------
+    arena = ArenaService(
+        players=players, dragons=dragons,
+        battles=app.bot_data["arena_battle_repo"],
         dragon_service=app.bot_data["dragon_service"],
     )
-    # Select a DIFFERENT dragon, then fight: combat must use the active one.
+    # Select a DIFFERENT dragon, then fight: the arena must use the active one.
     press(ctx, f"dg:view:{yakh.id}", UID)
     check("selected is یخ پنجه but active is آذر",
           get_selected_dragon(ctx.user_data) == yakh.id
           and players.get_active_dragon_id(UID) == azar.id)
-    res = combat.start_battle(UID, chat_id=-100)
-    check("CASE 4: combat starts", res.success, res.reason)
-    check("CASE 4: combat fights with the ACTIVE dragon, not the selected one",
-          res.battle.dragon_id == azar.id, res.battle.dragon_id)
-    combat.flee(res.battle.battle_id, UID)
+    check("CASE 4: the arena fights with the ACTIVE dragon, not the selected one",
+          arena.active_dragon(UID).id == azar.id, arena.active_dragon(UID).id)
 
     # --- back button clears the selection ------------------------------------
     q = press(ctx, "dg:list", UID)

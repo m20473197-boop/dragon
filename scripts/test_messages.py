@@ -11,7 +11,7 @@ os.environ["DRAGON_DB_PATH"] = os.path.join(tempfile.mkdtemp(), "msg.db")
 
 from types import SimpleNamespace as N  # noqa: E402
 
-from handlers import battle as bt  # noqa: E402
+from handlers import arena as ar  # noqa: E402
 from handlers import chests as ch  # noqa: E402
 from handlers import growth as gr  # noqa: E402
 from utils.text import reward_card  # noqa: E402
@@ -51,23 +51,63 @@ def main():
           "ابسیدین" not in opened and "اتر" not in opened, opened)
     check("chest message is short", len(lines(opened)) <= 5, opened)
 
-    # --- combat -------------------------------------------------------------
-    dragon = N(name="آذر", hp=180, max_hp=200, level=5)
-    enemy = N(emoji="👹", name="هیولا", hp=100, max_hp=100)
-    start = bt.start_text("آذر", enemy)
-    check("battle start has the VS line",
-          "🐉 آذر VS 👹 هیولا" in start, start)
-    check("battle start is short", len(lines(start)) <= 5, start)
+    # --- arena PvP ------------------------------------------------------------
+    from game.arena import ArenaResult, Fighter, Turn
+    me = Fighter(1, "Ali", 10, "آذر", "🐉", level=10, max_hp=300, hp=300, power=120)
+    rival = Fighter(2, "Reza", 20, "رعد", "🐉", level=11, max_hp=320, hp=0, power=130)
 
-    turn = bt.turn_text(N(dragon=dragon, enemy=enemy, dragon_damage=25,
-                          enemy_damage=0, enemy_hp_after=75))
-    check("attack shows «Damage»", turn.startswith("🔥 ۲۵ Damage"), turn)
+    card = ar.fighter_card(me)
+    check("fighter card matches the spec",
+          card == "🐉 آذر\n⭐ Lv.۱۰\n❤️ HP: ۳۰۰\n⚔️ Power: ۱۲۰", repr(card))
+    check("fighter card is short", len(lines(card)) <= 5, card)
 
-    win = bt.victory_text(N(dragon=dragon, enemy=enemy, xp_gained=50,
-                            obsidian=200, aether=0, level_ups=[]))
-    check("win title is 🏆 پیروزی!", win.startswith("🏆 پیروزی!"), win)
-    check("win shows XP and obsidian",
-          "⭐ +۵۰ XP" in win and "🪨 +۲۰۰" in win, win)
+    stats = {"points": 250, "wins": 3, "losses": 1, "league":
+             {"emoji": "🥉", "name": "برنز"}, "used": 3, "limit": 10,
+             "rank": 2, "next_league": {"emoji": "🥈", "name": "نقره",
+                                        "min_points": 500}, "dragon": None}
+    menu = ar.menu_text(stats)
+    check("arena menu title", menu.startswith("🏟️ آرنا اژدها"), menu)
+    check("arena menu shows the daily counter", "۷/۱۰" in menu, menu)
+    check("arena menu is short", len(lines(menu)) <= 6, menu)
+
+    res = ArenaResult(ok=True, challenger=me, opponent=rival, winner_id=1,
+                      turns=[Turn("آذر", "رعد", 35, False, 285)],
+                      points_delta=25, points_total=275, obsidian=500, xp=30,
+                      league={"emoji": "🥉", "name": "برنز"},
+                      battles_used=4, battles_limit=10)
+    won = ar.outcome_text(res)
+    check("win title is 🏆 برنده شدی!", won.startswith("🏆 برنده شدی!"), won)
+    check("win shows arena points", "🏅 +۲۵ امتیاز آرنا" in won, won)
+    check("win shows obsidian", "🪨 +۵۰۰ ابسیدین" in won, won)
+    check("win shows the remaining battles", "۶/۱۰" in won, won)
+
+    lost = ArenaResult(ok=True, challenger=me, opponent=rival, winner_id=2,
+                       turns=[], points_delta=-10, points_total=0,
+                       obsidian=100, xp=10,
+                       league={"emoji": "🥉", "name": "برنز"},
+                       battles_used=5, battles_limit=10)
+    defeat = ar.outcome_text(lost)
+    check("loss title is 💀 شکست خوردی!", defeat.startswith("💀 شکست خوردی!"), defeat)
+
+    battle = ar.battle_text(res)
+    check("battle screen announces the start",
+          battle.startswith("🏟️ نبرد آرنا شروع شد!"), battle)
+    check("battle screen has the VS separator", "\nVS\n" in battle, battle)
+    check("battle screen shows the attack line", "⚔️ آذر حمله کرد!" in battle, battle)
+    check("battle screen shows the damage", "💥 ۳۵ آسیب وارد شد" in battle, battle)
+
+    entries = [ar.RankEntry(1, 11, "Ali", 2500, 20, 3, {"emoji": "🥇", "name": "طلا"}),
+               ar.RankEntry(2, 12, "Reza", 2000, 15, 5, {"emoji": "🥈", "name": "نقره"}),
+               ar.RankEntry(3, 13, "Sara", 1500, 10, 8, {"emoji": "🥈", "name": "نقره"})]
+    rank = ar.ranking_text(entries)
+    check("ranking title", rank.startswith("🏆 رتبه آرنا"), rank)
+    check("ranking uses the three medals",
+          "🥇 Ali" in rank and "🥈 Reza" in rank and "🥉 Sara" in rank, rank)
+    check("ranking shows each player's league badge",
+          "🥇 Ali 🥇" in rank and "🥈 Reza 🥈" in rank, rank)
+    check("ranking shows points", "امتیاز: ۲۵۰۰" in rank, rank)
+    empty = ar.ranking_text([])
+    check("empty ranking is friendly", "هنوز کسی نجنگیده" in empty, empty)
 
     # --- level up -----------------------------------------------------------
     ev = N(name="آذر", new_level=6, max_hp_gained=20, power_gained=5)

@@ -33,18 +33,15 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
         # V6 tools: existing players start at level 1, like new ones.
         "rod_level": "INTEGER NOT NULL DEFAULT 1",
         "weapon_level": "INTEGER NOT NULL DEFAULT 1",
+        # V7 arena: existing players start unranked with a clean record.
+        "arena_points": "INTEGER NOT NULL DEFAULT 0",
+        "arena_wins": "INTEGER NOT NULL DEFAULT 0",
+        "arena_losses": "INTEGER NOT NULL DEFAULT 0",
+        "arena_battles_today": "INTEGER NOT NULL DEFAULT 0",
+        "arena_last_day": "TEXT",
     },
     "chats": {
         "last_egg_spawn_time": "REAL",
-    },
-    "battles": {
-        "chat_id": "INTEGER",
-        "message_id": "INTEGER",
-        "enemy_max_hp": "INTEGER NOT NULL DEFAULT 0",
-        "turns": "INTEGER NOT NULL DEFAULT 0",
-        "updated_time": "REAL",
-        "finished_time": "REAL",
-        "reward": "TEXT",
     },
     "eggs": {
         "is_test": "INTEGER NOT NULL DEFAULT 0",
@@ -71,21 +68,28 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
 # Indexes that newer versions rely on. ``schema.sql`` creates them for fresh
 # installs; older databases that already had the table get them here.
 _EXPECTED_INDEXES: dict[str, str] = {
-    "idx_battles_one_active": (
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_battles_one_active "
-        "ON battles (user_id) WHERE status = 'active'"
+    "idx_arena_battles_challenger": (
+        "CREATE INDEX IF NOT EXISTS idx_arena_battles_challenger "
+        "ON arena_battles (challenger_id, created_time)"
     ),
-    "idx_battles_status_created": (
-        "CREATE INDEX IF NOT EXISTS idx_battles_status_created "
-        "ON battles (status, created_time)"
+    "idx_arena_leaderboard": (
+        "CREATE INDEX IF NOT EXISTS idx_arena_leaderboard "
+        "ON players (arena_points DESC)"
     ),
 }
 
 # Tables added after the first release. ``init_db()`` creates them from
 # schema.sql, so this is only a safety net for the index definitions above.
 _INDEX_TABLES: dict[str, tuple[str, ...]] = {
-    "battles": ("idx_battles_one_active", "idx_battles_status_created"),
+    "arena_battles": ("idx_arena_battles_challenger",),
+    "players": ("idx_arena_leaderboard",),
 }
+
+# Tables removed in a later version. V7 replaced the PvE ``battles`` table with
+# the arena system, so the leftover table (and its indexes) are dropped from
+# upgraded databases. Nothing else reads it, and no player data lives there —
+# it only ever held transient NPC fights.
+_DROPPED_TABLES: tuple[str, ...] = ("battles",)
 
 
 def _existing_columns(conn, table: str) -> set[str]:
@@ -120,3 +124,13 @@ def run_migrations() -> None:
                     conn.execute(_EXPECTED_INDEXES[index_name])
                 except Exception:  # pragma: no cover - never block startup
                     logger.exception("Could not create index %s", index_name)
+
+        # V7: remove the obsolete PvE battles table. Player data (currency,
+        # dragons, storage, tools) lives in other tables and is untouched.
+        for table in _DROPPED_TABLES:
+            if table in tables:
+                try:
+                    conn.execute(f"DROP TABLE IF EXISTS {table}")
+                    logger.info("Migrated: dropped obsolete table %s", table)
+                except Exception:  # pragma: no cover - never block startup
+                    logger.exception("Could not drop obsolete table %s", table)

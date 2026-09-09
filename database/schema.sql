@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS players (
     aether            INTEGER NOT NULL DEFAULT 0,    -- ✨ اتر (rare currency)
     rod_level         INTEGER NOT NULL DEFAULT 1,    -- 🎣 fishing rod level (V6)
     weapon_level      INTEGER NOT NULL DEFAULT 1,    -- 🏹 hunting weapon level (V6)
+    arena_points        INTEGER NOT NULL DEFAULT 0,  -- 🏅 arena rating points (V7)
+    arena_wins          INTEGER NOT NULL DEFAULT 0,  -- 🏆 arena victories (V7)
+    arena_losses        INTEGER NOT NULL DEFAULT 0,  -- 💀 arena defeats (V7)
+    arena_battles_today INTEGER NOT NULL DEFAULT 0,  -- daily limit counter (V7)
+    arena_last_day      TEXT,                        -- UTC day of the counter (V7)
     created_at        TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -101,28 +106,28 @@ CREATE TABLE IF NOT EXISTS chests (
 CREATE INDEX IF NOT EXISTS idx_chests_group_status ON chests (group_id, status);
 CREATE INDEX IF NOT EXISTS idx_chests_status_created ON chests (status, created_time);
 
--- PvE battles (Version 4). One active battle per user at a time; the row
--- survives a restart so a fight can be resumed.
-CREATE TABLE IF NOT EXISTS battles (
-    battle_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id       INTEGER NOT NULL,                  -- owner/controller of the battle
-    dragon_id     INTEGER NOT NULL,                  -- the fighting dragon
-    chat_id       INTEGER,                           -- group the battle happens in
-    message_id    INTEGER,                           -- battle message (for button updates)
-    enemy_id      TEXT NOT NULL,                     -- key from config.ENEMIES
-    enemy_hp      INTEGER NOT NULL,
-    enemy_max_hp  INTEGER NOT NULL,
-    status        TEXT NOT NULL DEFAULT 'active',    -- active | won | lost | fled
-    turns         INTEGER NOT NULL DEFAULT 0,
-    created_time  REAL NOT NULL,
-    updated_time  REAL,
-    finished_time REAL,
-    reward        TEXT,                              -- JSON snapshot of what was granted
-    FOREIGN KEY (user_id)   REFERENCES players (user_id),
-    FOREIGN KEY (dragon_id) REFERENCES dragons (id)
+-- Arena PvP battles (Version 7). Replaces the old PvE `battles` table: every
+-- row is one finished duel between two players' dragons. It is an append-only
+-- history used for the result screen and stats; no "active battle" state is
+-- kept because an arena fight resolves in a single call.
+CREATE TABLE IF NOT EXISTS arena_battles (
+    battle_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    challenger_id   INTEGER NOT NULL,              -- player who pressed "find opponent"
+    opponent_id     INTEGER NOT NULL,              -- matched player
+    challenger_dragon_id INTEGER NOT NULL,
+    opponent_dragon_id   INTEGER NOT NULL,
+    winner_id       INTEGER NOT NULL,              -- user_id of the winner
+    turns           INTEGER NOT NULL DEFAULT 0,
+    chat_id         INTEGER,                       -- group the duel happened in
+    log             TEXT,                          -- JSON turn-by-turn log
+    reward          TEXT,                          -- JSON snapshot of what was granted
+    created_time    REAL NOT NULL,
+    FOREIGN KEY (challenger_id) REFERENCES players (user_id),
+    FOREIGN KEY (opponent_id)   REFERENCES players (user_id)
 );
 
--- At most ONE active battle per user (enforced by the database itself).
-CREATE UNIQUE INDEX IF NOT EXISTS idx_battles_one_active
-    ON battles (user_id) WHERE status = 'active';
-CREATE INDEX IF NOT EXISTS idx_battles_status_created ON battles (status, created_time);
+CREATE INDEX IF NOT EXISTS idx_arena_battles_challenger
+    ON arena_battles (challenger_id, created_time);
+-- NOTE: the leaderboard index on players(arena_points) is created by
+-- database/migrate.py, NOT here. This file runs before the migrations, so on
+-- an upgraded database the column would not exist yet and startup would fail.

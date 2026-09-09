@@ -5,7 +5,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from config import (
-    COMMAND_BATTLE,
     COMMAND_EGGS,
     COMMAND_FISHING,
     COMMAND_HUNT,
@@ -29,7 +28,7 @@ WELCOME_TEXT = (
     f"❄️ {COMMAND_STORAGE}\n"
     f"🏪 {COMMAND_MARKET}\n"
     f"🏰 {COMMAND_TREASURY}\n"
-    f"⚔️ {COMMAND_BATTLE}"
+    "🏟️ /arena"
 )
 
 

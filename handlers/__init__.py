@@ -25,7 +25,7 @@ from telegram.ext import (
 from config import (
     COMMAND_ADMIN_PANEL,
     COMMAND_ADMIN_TEST_EGG,
-    COMMAND_BATTLE,
+    COMMAND_ARENA_SLASH,
     COMMAND_EGGS,
     COMMAND_FISHING,
     COMMAND_HUNT,
@@ -39,7 +39,7 @@ from config import (
     HATCH_SWEEP_INTERVAL_SECONDS,
     SPAWN_CHECK_INTERVAL_SECONDS,
 )
-from game.combat import CombatService
+from game.arena import ArenaService
 from game.dragons import DragonService
 from game.eggs import EggService
 from game.feeding import FeedingService
@@ -49,10 +49,10 @@ from game.storage import ColdStorageService
 from game.tools import ToolService
 from game.treasury import TreasuryService
 from game.upgrades import UpgradeService
-from handlers.battle import (
-    PREFIX as BATTLE_PREFIX,
-    battle_callback,
-    battle_command,
+from handlers.arena import (
+    PREFIX as ARENA_PREFIX,
+    arena_callback,
+    arena_command,
 )
 from handlers.common import help_command, start_command
 from handlers.eggs import eggs_command
@@ -88,7 +88,7 @@ from handlers.treasury import (
 )
 from handlers.tracking import track_from_update
 from admin.service import AdminService
-from models.battle import BattleRepository
+from models.arena import ArenaBattleRepository
 from models.chat import ChatRepository
 from models.chest import ChestRepository
 from models.dragon import DragonRepository
@@ -108,7 +108,6 @@ COMMAND_MAP = {
     COMMAND_STORAGE: storage_command,
     COMMAND_MARKET: market_command,
     COMMAND_TREASURY: treasury_command,
-    COMMAND_BATTLE: battle_command,
     COMMAND_ADMIN_PANEL: admin_panel_command,
     COMMAND_ADMIN_TEST_EGG: admin_test_egg_command,
 }
@@ -153,7 +152,7 @@ def _setup_shared_objects(application: Application) -> None:
     application.bot_data["egg_repo"] = EggRepository()
     application.bot_data["chest_repo"] = ChestRepository()
     application.bot_data["dragon_repo"] = DragonRepository()
-    application.bot_data["battle_repo"] = BattleRepository()
+    application.bot_data["arena_battle_repo"] = ArenaBattleRepository()
 
     # Cold storage (سردخانه) holds every player's meat and fish. It is shared
     # by gathering (deposit) and feeding (consume).
@@ -199,11 +198,12 @@ def _setup_shared_objects(application: Application) -> None:
         dragons=application.bot_data["dragon_repo"],
         players=application.bot_data["player_repo"],
     )
-    # Basic PvE combat (مبارزه). Rewards reuse the currency + XP systems.
-    application.bot_data["combat_service"] = CombatService(
-        battles=application.bot_data["battle_repo"],
-        dragons=application.bot_data["dragon_repo"],
+    # Arena PvP (/arena). Rewards reuse the currency + XP systems; dragon HP
+    # is never written, so fighting cannot break feeding or growth.
+    application.bot_data["arena_service"] = ArenaService(
         players=application.bot_data["player_repo"],
+        dragons=application.bot_data["dragon_repo"],
+        battles=application.bot_data["arena_battle_repo"],
         dragon_service=application.bot_data["dragon_service"],
     )
     application.bot_data["admin_service"] = AdminService(
@@ -250,6 +250,8 @@ def register_all(application: Application) -> None:
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    # Arena PvP is a slash command, per the V7 spec.
+    application.add_handler(CommandHandler(COMMAND_ARENA_SLASH, arena_command))
 
     # Inline-button claim: "claim_egg:<id>"
     application.add_handler(
@@ -270,9 +272,9 @@ def register_all(application: Application) -> None:
         CallbackQueryHandler(market_callback, pattern=rf"^{MARKET_PREFIX}")
     )
 
-    # Battle buttons: "bt:<action>:<battle_id>"
+    # Arena buttons: "ar:<action>"
     application.add_handler(
-        CallbackQueryHandler(battle_callback, pattern=rf"^{BATTLE_PREFIX}")
+        CallbackQueryHandler(arena_callback, pattern=rf"^{ARENA_PREFIX}")
     )
 
     # Dragon management panel: "dg:<action>[:<dragon_id>...]"

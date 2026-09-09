@@ -48,6 +48,11 @@ class Player:
     aether: int = 0
     rod_level: int = 1
     weapon_level: int = 1
+    arena_points: int = 0
+    arena_wins: int = 0
+    arena_losses: int = 0
+    arena_battles_today: int = 0
+    arena_last_day: Optional[str] = None
 
     @classmethod
     def from_row(cls, row) -> "Player":
@@ -71,6 +76,16 @@ class Player:
             # Older rows (pre-migration reads) default to level 1.
             rod_level=row["rod_level"] if "rod_level" in keys else 1,
             weapon_level=row["weapon_level"] if "weapon_level" in keys else 1,
+            # V7 arena. Older rows (pre-migration reads) are unranked.
+            arena_points=row["arena_points"] if "arena_points" in keys else 0,
+            arena_wins=row["arena_wins"] if "arena_wins" in keys else 0,
+            arena_losses=row["arena_losses"] if "arena_losses" in keys else 0,
+            arena_battles_today=(
+                row["arena_battles_today"] if "arena_battles_today" in keys else 0
+            ),
+            arena_last_day=(
+                row["arena_last_day"] if "arena_last_day" in keys else None
+            ),
         )
 
 
@@ -398,3 +413,116 @@ class PlayerRepository:
         if last is None:
             return 0
         return max(0, int(math.ceil(cooldown_seconds - (now - last))))
+
+    # --- arena (V7) ---------------------------------------------------------
+    def consume_arena_battle(
+        self,
+        user_id: int,
+        day: str,
+        limit: int,
+        conn=None,
+    ) -> tuple[bool, int]:
+        """Atomically claim one of today's arena battle slots.
+
+        Returns ``(allowed, used_after)``. The counter resets by itself when
+        ``arena_last_day`` is not today, so no scheduled job is needed. The
+        guarded UPDATE means two simultaneous taps can never exceed the limit.
+        """
+        with db_scope(conn) as c:
+            # Roll the day over first so the guard below compares today's count.
+            c.execute(
+                "UPDATE players SET arena_battles_today = 0, arena_last_day = ? "
+                "WHERE user_id = ? AND (arena_last_day IS NOT ? OR arena_last_day IS NULL)",
+                (day, user_id, day),
+            )
+            cur = c.execute(
+                "UPDATE players SET arena_battles_today = arena_battles_today + 1 "
+                "WHERE user_id = ? AND arena_last_day = ? AND arena_battles_today < ?",
+                (user_id, day, limit),
+            )
+            if cur.rowcount == 0:
+                row = c.execute(
+                    "SELECT arena_battles_today AS n FROM players WHERE user_id = ?",
+                    (user_id,),
+                ).fetchone()
+                return False, (row["n"] if row is not None else limit)
+            row = c.execute(
+                "SELECT arena_battles_today AS n FROM players WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            return True, (row["n"] if row is not None else 0)
+
+    def arena_battles_used(self, user_id: int, day: str, conn=None) -> int:
+        """How many arena battles the player has used *today* (0 on a new day)."""
+        with db_scope(conn) as c:
+            row = c.execute(
+                "SELECT arena_battles_today AS n, arena_last_day AS d "
+                "FROM players WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        if row is None or row["d"] != day:
+            return 0
+        return int(row["n"] or 0)
+
+    def record_arena_result(
+        self,
+        user_id: int,
+        won: bool,
+        points_delta: int,
+        points_floor: int = 0,
+        conn=None,
+    ) -> int:
+        """Apply an arena result to a player and return their new point total.
+
+        Points never drop below ``points_floor``. Win/loss counters are bumped
+        in the same statement so the record can never be half-written.
+        """
+        column = "arena_wins" if won else "arena_losses"
+        with db_scope(conn) as c:
+            c.execute(
+                f"UPDATE players SET arena_points = MAX(?, arena_points + ?), "
+                f"{column} = {column} + 1 WHERE user_id = ?",
+                (points_floor, points_delta, user_id),
+            )
+            row = c.execute(
+                "SELECT arena_points AS p FROM players WHERE user_id = ?", (user_id,)
+            ).fetchone()
+        return int(row["p"]) if row is not None else 0
+
+    def top_by_arena_points(self, limit: int = 10, conn=None) -> list["Player"]:
+        """Leaderboard: players with the most arena points (ties by wins)."""
+        with db_scope(conn) as c:
+            rows = c.execute(
+                "SELECT * FROM players WHERE arena_points > 0 OR arena_wins > 0 "
+                "ORDER BY arena_points DESC, arena_wins DESC, user_id ASC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [Player.from_row(r) for r in rows]
+
+    def arena_rank_of(self, user_id: int, conn=None) -> Optional[int]:
+        """1-based leaderboard position of a player, or None if unranked."""
+        with db_scope(conn) as c:
+            row = c.execute(
+                "SELECT arena_points AS p, arena_wins AS w FROM players "
+                "WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            if row is None or (row["p"] <= 0 and row["w"] <= 0):
+                return None
+            ahead = c.execute(
+                "SELECT COUNT(*) AS n FROM players WHERE "
+                "arena_points > ? OR (arena_points = ? AND arena_wins > ?)",
+                (row["p"], row["p"], row["w"]),
+            ).fetchone()
+        return int(ahead["n"]) + 1
+
+    def arena_candidates(
+        self, exclude_user_id: int, conn=None
+    ) -> list["Player"]:
+        """Players other than ``exclude_user_id`` who have an active dragon."""
+        with db_scope(conn) as c:
+            rows = c.execute(
+                "SELECT * FROM players WHERE user_id != ? AND active_dragon_id IS NOT NULL",
+                (exclude_user_id,),
+            ).fetchall()
+        return [Player.from_row(r) for r in rows]

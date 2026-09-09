@@ -44,6 +44,12 @@ Send these as normal messages in the group (no `/`):
 | `نام اژدها` | Name dragon      | The bot asks for a name; your next message names your most recent dragon. Sending a game command cancels it. |
 | `سردخانه`   | Cold storage     | Shows your ❄️ سردخانه (cold storage): stored 🥩 گوشت and 🐟 ماهی. |
 
+Plus one **slash** command:
+
+| Command  | Meaning | Effect |
+|----------|---------|--------|
+| `/arena` | 🏟️ Arena PvP | Opens the arena: find an opponent, leaderboard, your dragon's arena profile. See [Arena PvP](#-arena-pvp-version-7). |
+
 ### Cold storage (سردخانه)
 
 Every player has a basic **❄️ سردخانه** (cold storage) that holds their food —
@@ -96,7 +102,7 @@ reset deletes only those rows and corrects counters. Action statistics use
 - **Hunger:** every dragon has a `hunger` percentage (stored; **100 = full** at
   birth). It decays **20 points per hour**. At or above 30 the dragon fights at
   full power; below 30 its **effective power** scales down to 50% at 0 hunger
-  (`game/dragons.py::effective_power`, ready for combat).
+  (`game/dragons.py::effective_power`, used by the arena).
 - **Feeding:** happens **only** on a dragon's own page (`اژدها های من` → select
   a dragon → `🥩 غذا دادن`); there is no feeding command. Food is spent one unit
   at a time, atomically (guarded `UPDATE`), so rapid taps can never over-spend.
@@ -118,8 +124,8 @@ reset deletes only those rows and corrects counters. Action statistics use
   > 🔥 +۵ Power
 
   The growth engine lives in `game/dragons.py` (`DragonService.add_xp`); a
-  single XP grant can cross multiple levels and is applied atomically. No
-  combat/PvP yet — the same `add_xp` entry point is ready for future battles.
+  single XP grant can cross multiple levels and is applied atomically. The
+  arena awards XP through this same `add_xp` entry point.
 
 ### Dragon data system
 
@@ -134,7 +140,7 @@ The `dragons` table stores `id, owner_id, name, type, level, xp, hp, max_hp,
 power` (plus `from_egg_id`, `born_at`). On startup `database/migrate.py`
 adds any missing columns to older databases, so existing installs upgrade in
 place. Dragon creation/reading lives in `game/dragons.py` (`DragonService`);
-no combat or PvP yet.
+PvP lives in `game/arena.py`.
 
 Both gathering actions are cooldown-protected (the bot remembers and saves the
 last hunt/fishing time per user and rejects spam with a live wait timer).
@@ -222,9 +228,11 @@ dragon_bot/
 │   ├── player.py           # PlayerRepository incl. atomic apply_gather / cooldown
 │   ├── chat.py             # ChatRepository (active groups)
 │   ├── egg.py              # EggRepository: atomic claim, spawn, idempotent hatch
-│   └── dragon.py           # DragonRepository
+│   ├── dragon.py           # DragonRepository
+│   └── arena.py            # ArenaBattleRepository (PvP duel history)
 ├── game/                   # Rules only — no Telegram imports
 │   ├── actions.py          # hunt(), fish() (atomic reward + cooldown)
+│   ├── arena.py            # ArenaService: matchmaking, duel simulation, leagues
 │   └── eggs.py             # EggService: spawn, claim, found eggs, hatch, expire
 ├── handlers/               # Telegram only
 │   ├── __init__.py         # Router + register_all() (handlers, error handler, jobs)
@@ -235,12 +243,14 @@ dragon_bot/
 │   ├── errors.py           # Global error handler
 │   ├── hunt.py             # شکار
 │   ├── fishing.py          # ماهیگیری
+│   ├── arena.py            # /arena (PvP menu, battle, ranking)
 │   └── eggs.py             # تخم ها
 ├── utils/
 │   ├── text.py             # Persian digits, cooldown text, command normalization
 │   └── rng.py              # weighted_choice() helper
 └── scripts/
     ├── smoke_test.py       # Tests DB + game logic (full egg lifecycle)
+    ├── test_arena.py       # Arena PvP: matchmaking, balance, limits, migration
     └── test_atomicity.py   # Concurrency tests: no duplicate rewards/dragons
 ```
 
@@ -292,7 +302,7 @@ python3 scripts/test_atomicity.py    # concurrency: no duplicate rewards/dragons
 for s in scripts/test_*.py scripts/smoke_test.py; do python3 "$s" || break; done
 ```
 
-There are 19 suites; `test_admin.py` needs `DRAGON_ADMIN_IDS=1 DRAGON_DEBUG=true`.
+There are 22 suites; `test_admin.py` needs `DRAGON_ADMIN_IDS=1 DRAGON_DEBUG=true`.
 Runs against a throwaway DB. The smoke test covers player creation,
 hunting/fishing, cooldowns, chat tracking, spawning, claiming, found eggs,
 hatching and expiry; the atomicity test runs **concurrent** hunts and claims in
@@ -529,56 +539,182 @@ Telegram is slow or unreachable:
 
 Covered by `scripts/test_send_resilience.py`.
 
-## ⚔️ Combat system (نسخه ۴)
+## 🏟️ Arena PvP (Version 7)
 
-دستور **«مبارزه»** اژدهای *فعال* بازیکن را به جنگ یک دشمن تصادفی می‌فرستد.
-اگر بازیکن اژدهای فعال نداشته باشد پیام «🐉 ابتدا یک اژدها را انتخاب کنید.»
-نمایش داده می‌شود و هیچ نبردی شروع نمی‌شود.
+**Version 7 removed the PvE combat system entirely.** The wolf / forest
+monster / giant scorpion enemies, the «مبارزه» command, `game/combat.py`,
+`handlers/battle.py`, `models/battle.py` and the `bt:` buttons are all gone,
+along with the `battles` table (dropped automatically by `database/migrate.py`).
+There are no NPC enemies in the game any more — dragons only fight *other
+players' dragons*.
 
-### دشمن‌ها (`config.ENEMIES`)
+### The command
 
-| دشمن | ❤️ HP | ⚔️ Power | 🪨 جایزه | ⭐ XP |
-|------|------|---------|---------|------|
-| 🐺 گرگ وحشی | ۸۰ | ۱۰ | ۶۰–۱۴۰ | ۱۵–۲۵ |
-| 👹 هیولای جنگل | ۱۲۰ | ۱۶ | ۱۲۰–۲۶۰ | ۲۵–۴۰ |
-| 🦂 عقرب غول پیکر | ۱۰۰ | ۲۲ | ۱۵۰–۳۲۰ | ۳۰–۵۰ |
+`/arena` (a real slash command) opens the menu:
 
-دشمن‌ها با وزن انتخاب می‌شوند؛ برای افزودن دشمن جدید فقط کافی است یک ورودی
-به `ENEMIES` اضافه شود.
+```
+🏟️ آرنا اژدها
 
-### جریان نبرد
+🥉 لیگ برنز
+🏅 ۲۵۰ امتیاز
 
-پیام نبرد دو دکمه دارد: **⚔️ حمله** و **🏃 فرار**.
+⚔️ مبارزه‌های باقی‌مانده امروز:
+۱۰/۱۰
+  [⚔️ پیدا کردن حریف]
+  [🏆 رتبه‌بندی]
+  [🐉 اژدهای من]
+  [🔙 برگشت]
+```
 
-- **حمله:** آسیب اژدها = `effective_power(power, hunger)` + یک عدد تصادفی
-  (`BATTLE_DAMAGE_BONUS_MIN..MAX`). اگر دشمن زنده بماند، با
-  `attack_power ± BATTLE_ENEMY_DAMAGE_SPREAD` ضربه می‌زند. گرسنگی روی قدرت
-  اثر می‌گذارد (همان سیستم قبلی).
-- **پیروزی:** ⭐ تجربه (از طریق `DragonService.add_xp`، پس لِوِل‌آپ عادی کار
-  می‌کند)، 🪨 ابسیدین، و با شانس `BATTLE_AETHER_CHANCE` مقداری ✨ اتر.
-- **شکست:** اژدها هرگز حذف نمی‌شود؛ فقط ضعیف می‌شود و HP آن روی
-  `BATTLE_DRAGON_MIN_HP` می‌ماند. با غذا دادن دوباره قوی می‌شود.
-- **فرار:** نبرد بدون جایزه و بدون ذخیره‌ی پیشرفت تمام می‌شود.
+Every button edits the same message in place — the arena never spams the group.
 
-### پایگاه داده
+### Matchmaking
 
-جدول `battles` (`battle_id, user_id, dragon_id, chat_id, message_id, enemy_id,
-enemy_hp, enemy_max_hp, status, turns, created_time, updated_time,
-finished_time, reward`). نبرد در دیتابیس ذخیره می‌شود، پس **ری‌استارت شدن
-بات آن را از بین نمی‌برد**.
+Pressing **⚔️ پیدا کردن حریف** takes the player's **active** dragon and looks
+for another player whose active dragon is a fair opponent. Strength is a
+single rating combining the three stats the design calls for:
 
-### محافظت در برابر اسپم
+```
+rating = level × 10 + power × 3 + max_hp
+```
 
-- ایندکس یکتای جزئی `idx_battles_one_active` تضمین می‌کند هر کاربر در هر لحظه
-  فقط **یک** نبرد فعال دارد.
-- هر حمله با `UPDATE ... WHERE status='active' AND turns=?` اعمال می‌شود، پس
-  دو بار فشردن همزمان دکمه فقط یک نوبت را اجرا می‌کند.
-- شناسه‌ی نبرد داخل `callback_data` است و مالکیت در هر کلیک دوباره بررسی
-  می‌شود؛ کاربر دیگر پیام «⛔ این نبرد مال تو نیست!» می‌گیرد.
-- دکمه‌های نبرد تمام‌شده کار نمی‌کنند و پاک می‌شوند.
-- نبردهای رهاشده بعد از `BATTLE_STALE_SECONDS` آزاد می‌شوند تا کاربر قفل نشود.
+A pair is acceptable when the level gap is within `ARENA_MATCH_LEVEL_SPREAD`
+(3) **and** the rating gap is within `ARENA_MATCH_RATING_RATIO` (25 %) of the
+stronger dragon. If nobody qualifies, the search widens **once** (6 levels /
+50 %) so small groups can still play, then gives up with
+«😕 حریف هم‌زور پیدا نشد!». A very weak dragon is therefore never matched
+against a very strong one — a Lv.1 dragon and a Lv.30 dragon fail both windows.
 
-تست‌ها: `scripts/test_combat.py` (۸۰ بررسی).
+Among the valid candidates the *closest* rating wins, with ties broken randomly
+so the same two players do not always meet.
+
+### The battle
+
+The whole duel is simulated in one call and rendered as one message:
+
+```
+🏟️ نبرد آرنا شروع شد!
+
+🐉 آذر
+⭐ Lv.۱۰
+❤️ HP: ۳۰۰
+⚔️ Power: ۱۲۰
+
+VS
+
+🐉 شعله
+⭐ Lv.۱۰
+❤️ HP: ۲۹۰
+⚔️ Power: ۱۱۸
+
+━━━━━━━━━━
+
+⚔️ آذر حمله کرد!
+💥 ۵۶ آسیب وارد شد
+⚔️ شعله حمله کرد!
+💥 ضربه بحرانی! ۹۷ آسیب وارد شد
+...
+```
+
+Per hit: `power × uniform(0.18, 0.42) + level × 0.5`, with a 12 % chance of a
+×1.6 **ضربه بحرانی**, never less than 1 damage. Both dragons enter at full HP
+and trade blows until one reaches 0; `ARENA_MAX_TURNS` (60) guarantees the loop
+always terminates. Long fights are trimmed to the opening and closing
+exchanges so the message stays readable.
+
+**Initiative is a coin flip.** Striking first is a real advantage in an HP
+race, so always giving it to the player who pressed the button skewed an even
+match to ~76/24. Randomising it puts a mirror match back at ~50/50 (verified
+over 400 seeded fights in `scripts/test_arena.py`).
+
+Hunger still applies: a starving dragon fights at reduced power, exactly as
+`effective_power` does everywhere else.
+
+### No dragon ever dies
+
+The fight runs on an in-memory snapshot of each dragon's stats. **The stored
+`hp` column is never written by the arena**, so a loss costs no HP, needs no
+healing, and cannot interfere with feeding, growth or upgrades. Losing only
+costs arena points.
+
+### Rewards
+
+| Outcome | Arena points | Obsidian | XP |
+| --- | --- | --- | --- |
+| 🏆 Win | +25 | 400–600 | +30 |
+| 💀 Loss | −10 | +100 | +10 |
+
+```
+🏆 برنده شدی!
+
+🏅 +۲۵ امتیاز آرنا
+🪨 +۵۰۰ ابسیدین
+✨ +۳۰ تجربه
+
+⚔️ باقی‌مانده امروز: ۹/۱۰
+```
+
+XP goes through the normal `DragonService.add_xp`, so arena wins can level a
+dragon up just like hunting does. Points never fall below 0. The matched
+opponent's win/loss record is updated too (so the ladder stays consistent) but
+they receive no currency — only the player who fought spends a battle slot.
+
+### Daily limit
+
+`ARENA_DAILY_BATTLE_LIMIT` (10) battles per UTC day, tracked in
+`players.arena_battles_today` + `arena_last_day`. The counter resets by itself
+on the first action of a new day — no scheduled job. The slot is claimed with
+a guarded `UPDATE ... WHERE arena_battles_today < limit`, so two simultaneous
+taps can never exceed the cap, and a **failed search costs nothing**.
+
+### Leagues & ranking
+
+| League | Emoji | From |
+| --- | --- | --- |
+| برنز | 🥉 | 0 |
+| نقره | 🥈 | 500 |
+| طلا | 🥇 | 1500 |
+| الماس | 💎 | 3000 |
+| افسانه | 🐉 | 6000 |
+
+**🏆 رتبه‌بندی** shows the top 10. The left medal is the *rank*; the badge after
+the name is the player's *league*:
+
+```
+🏆 رتبه آرنا
+
+🥇 Kian 🥇
+🏅 امتیاز: ۲۵۰۰
+
+🥈 Reza 🥇
+🏅 امتیاز: ۲۰۰۰
+
+🥉 Sara 🥈
+🏅 امتیاز: ۱۵۰۰
+
+📍 رتبه تو: ۴
+```
+
+**🐉 اژدهای من** shows the active dragon's stats plus league, points, W/L,
+rank, the points still needed for the next league, and today's remaining
+battles.
+
+### Database
+
+`players` gains `arena_points`, `arena_wins`, `arena_losses`,
+`arena_battles_today` and `arena_last_day`; the new `arena_battles` table is an
+append-only history of finished duels. Existing players are migrated in place
+and start unranked (all zeros) with **every other column untouched** — meat,
+fish, obsidian, aether, rod/weapon levels and dragons all survive, verified by
+a real V6-database upgrade test.
+
+> Note: the leaderboard index on `players(arena_points)` is created in
+> `database/migrate.py`, *not* `schema.sql` — `schema.sql` runs before the
+> migrations, so on an upgraded database the column does not exist yet.
+
+Code: `game/arena.py` (rules), `handlers/arena.py` (UI), `models/arena.py`
+(history), `models/player.py` (points/limits). Tests: `scripts/test_arena.py`
+(124 checks).
 
 ## 🔁 Duplicate instance (Conflict) handling
 
@@ -616,7 +752,7 @@ Tests: `scripts/test_conflict.py` (20 checks).
 |---|---|---|
 | محل ذخیره | `context.user_data` (موقت، فقط همین تعامل) | `players.active_dragon_id` (دائمی) |
 | چه چیزی عوضش می‌کند | باز کردن صفحه‌ی اژدها | فقط دکمه‌ی «⭐ انتخاب به عنوان فعال» |
-| کاربرد | دیدن مشخصات، غذا دادن، ارتقا، تغییر نام | نماینده‌ی بازیکن در بقیه‌ی بازی (مبارزه) |
+| کاربرد | دیدن مشخصات، غذا دادن، ارتقا، تغییر نام | نماینده‌ی بازیکن در بقیه‌ی بازی (آرنا) |
 
 - انتخاب اژدها از لیست **فقط** پروفایلش را باز می‌کند.
 - غذا دادن / ارتقا / تغییر نام روی همان اژدهای انتخاب‌شده اعمال می‌شود و
@@ -625,7 +761,7 @@ Tests: `scripts/test_conflict.py` (20 checks).
   «⭐ <نام> اکنون اژدهای فعال شماست.» را نشان می‌دهد.
 - در لیست، اژدهای فعال با ✅ و در پروفایلش با خط «⭐ اژدهای فعال تو» مشخص است.
 - «🔙 برگشت» انتخاب موقت را پاک می‌کند (اژدهای فعال بدون تغییر می‌ماند).
-- سیستم مبارزه فقط `active_dragon_id` را می‌خواند.
+- سیستم آرنا فقط `active_dragon_id` را می‌خواند.
 
 ساختار دیتابیس تغییری نکرد: `selected_dragon_id` عمداً در دیتابیس ذخیره
 نمی‌شود چون حالت موقتِ نشست است (`game/selection.py`).
@@ -849,7 +985,7 @@ what the existing systems already maintain:
 | 🥚 eggs | `eggs` table, grouped by type (`count_incubating_by_type`) |
 
 Nothing in the treasury writes to the database, so it can never desync from
-the cold storage, market, chest or combat systems — a chest opened a second
+the cold storage, market, chest or arena systems — a chest opened a second
 earlier is already reflected. The test suite asserts the values match
 `ColdStorageService` and the player row exactly, and that browsing every screen
 leaves all player data byte-identical.
