@@ -801,3 +801,50 @@ Duplicate claims remain impossible: collecting an egg and opening a chest are
 each a single conditional `UPDATE`, so exactly one user can ever win. Every
 group is swept independently, and a failure in one group never aborts the
 sweep. Covered by `scripts/test_temporary.py` (43 checks).
+
+## 🏰 Dragon Treasury (خزانه)
+
+A read-only inventory screen. Send **`خزانه`**:
+
+```
+🏰 خزانه اژدها
+
+🪨 ابسیدین: ۱۵۰۰
+✨ اتر: ۷
+[🥩 غذا]
+[🥚 تخم‌ها]
+```
+
+`[🥩 غذا]` and `[🥚 تخم‌ها]` **edit the same message** (no new messages), and
+`[🔙 برگشت]` returns:
+
+```
+❄️ سردخانه            🥚 تخم‌های من:
+
+🥩 گوشت: ۵۰           🥚 تخم معمولی: ۳
+🐟 ماهی: ۸۰           💎 تخم کمیاب: ۱
+                      👑 تخم افسانه‌ای: ۰
+```
+
+Every configured egg type is always listed, so a type the player does not hold
+shows `۰` instead of disappearing.
+
+### No duplicated storage
+
+`game/treasury.py` owns **no data**. It is a pure aggregation layer that reads
+what the existing systems already maintain:
+
+| Shown | Read from |
+| --- | --- |
+| 🪨 ابسیدین / ✨ اتر | `players.obsidian` / `players.aether` |
+| 🥩 گوشت / 🐟 ماهی | `ColdStorageService` (the single owner of meat/fish) |
+| 🥚 eggs | `eggs` table, grouped by type (`count_incubating_by_type`) |
+
+Nothing in the treasury writes to the database, so it can never desync from
+the cold storage, market, chest or combat systems — a chest opened a second
+earlier is already reflected. The test suite asserts the values match
+`ColdStorageService` and the player row exactly, and that browsing every screen
+leaves all player data byte-identical.
+
+Callback namespace is `tr:` (no collision with `dg:`, `mk:`, `bt:`, `admin:`,
+`open_chest:`, `claim_egg:`). Covered by `scripts/test_treasury.py` (51 checks).

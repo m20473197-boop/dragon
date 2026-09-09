@@ -33,6 +33,7 @@ from config import (
     COMMAND_MY_DRAGONS_MENU,
     COMMAND_NAME_DRAGON,
     COMMAND_STORAGE,
+    COMMAND_TREASURY,
     CLEANUP_SWEEP_INTERVAL_SECONDS,
     CHEST_CHECK_INTERVAL_SECONDS,
     HATCH_SWEEP_INTERVAL_SECONDS,
@@ -45,6 +46,7 @@ from game.feeding import FeedingService
 from game.chests import ChestService
 from game.market import MarketService
 from game.storage import ColdStorageService
+from game.treasury import TreasuryService
 from game.upgrades import UpgradeService
 from handlers.battle import (
     PREFIX as BATTLE_PREFIX,
@@ -78,6 +80,11 @@ from handlers.name_dragon import (
 )
 from handlers.spawn import CLAIM_PREFIX, claim_callback
 from handlers.storage import storage_command
+from handlers.treasury import (
+    PREFIX as TREASURY_PREFIX,
+    treasury_callback,
+    treasury_command,
+)
 from handlers.tracking import track_from_update
 from admin.service import AdminService
 from models.battle import BattleRepository
@@ -99,6 +106,7 @@ COMMAND_MAP = {
     COMMAND_NAME_DRAGON: name_dragon_command,
     COMMAND_STORAGE: storage_command,
     COMMAND_MARKET: market_command,
+    COMMAND_TREASURY: treasury_command,
     COMMAND_BATTLE: battle_command,
     COMMAND_ADMIN_PANEL: admin_panel_command,
     COMMAND_ADMIN_TEST_EGG: admin_test_egg_command,
@@ -168,6 +176,12 @@ def _setup_shared_objects(application: Application) -> None:
     application.bot_data["chest_service"] = ChestService(
         chests=application.bot_data["chest_repo"],
         players=application.bot_data["player_repo"],
+        storage=application.bot_data["storage_service"],
+    )
+    # Treasury is a read-only view over the systems above (no new storage).
+    application.bot_data["treasury_service"] = TreasuryService(
+        players=application.bot_data["player_repo"],
+        eggs=application.bot_data["egg_repo"],
         storage=application.bot_data["storage_service"],
     )
     application.bot_data["market_service"] = MarketService(
@@ -243,6 +257,10 @@ def register_all(application: Application) -> None:
     )
 
     # Market: "mk:<action>[:<category>[:<item>]]"
+    application.add_handler(
+        CallbackQueryHandler(treasury_callback, pattern=rf"^{TREASURY_PREFIX}")
+    )
+
     application.add_handler(
         CallbackQueryHandler(market_callback, pattern=rf"^{MARKET_PREFIX}")
     )

@@ -33,6 +33,7 @@ COMMAND_MY_DRAGONS_MENU = "اژدها"  # the only dragon/feeding entry point
 COMMAND_NAME_DRAGON = "نام اژدها"
 COMMAND_STORAGE = "سردخانه"
 COMMAND_MARKET = "بازار"
+COMMAND_TREASURY = "خزانه"   # read-only inventory view
 COMMAND_BATTLE = "مبارزه"
 COMMAND_ADMIN_PANEL = "پنل مدیریت"
 COMMAND_ADMIN_TEST_EGG = "ساخت تخم تست"
@@ -287,6 +288,7 @@ HATCH_SWEEP_INTERVAL_SECONDS: int = 30    # how often eggs are hatched/expired
 EGG_TYPES: dict[str, dict] = {
     "common": {
         "name": "تخم اژدهای معمولی",
+        "short": "تخم معمولی",
         "emoji": "🥚",
         "weight": 70,
         "hatch_seconds": 15 * 60,
@@ -294,6 +296,7 @@ EGG_TYPES: dict[str, dict] = {
     },
     "rare": {
         "name": "تخم اژدهای کمیاب",
+        "short": "تخم کمیاب",
         "emoji": "💎",
         "weight": 25,
         "hatch_seconds": 45 * 60,
@@ -301,6 +304,7 @@ EGG_TYPES: dict[str, dict] = {
     },
     "legendary": {
         "name": "تخم اژدهای افسانه‌ای",
+        "short": "تخم افسانه‌ای",
         "emoji": "👑",
         "weight": 5,
         "hatch_seconds": 2 * 60 * 60,

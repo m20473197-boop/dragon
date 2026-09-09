@@ -332,6 +332,25 @@ class EggRepository:
                 "UPDATE eggs SET status = ? WHERE id = ?", (status, egg_id)
             )
 
+    def count_incubating_by_type(self, owner_id: int, conn=None) -> dict[str, int]:
+        """How many eggs of each type the owner is currently incubating.
+
+        Read-only aggregate used by the treasury display. Returns
+        ``{egg_type: count}`` for types the player actually holds; callers
+        supply the zero default for the rest.
+        """
+        with db_scope(conn) as c:
+            rows = c.execute(
+                """
+                SELECT egg_type, COUNT(*) AS n
+                  FROM eggs
+                 WHERE owner_id = ? AND status = ?
+                 GROUP BY egg_type
+                """,
+                (owner_id, STATUS_INCUBATING),
+            ).fetchall()
+        return {row["egg_type"]: row["n"] for row in rows}
+
     def list_by_owner(self, owner_id: int, conn=None) -> list[Egg]:
         """All of a user's eggs, newest first."""
         with db_scope(conn) as c:
