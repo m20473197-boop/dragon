@@ -80,6 +80,9 @@ class FeedingService:
             dragon = self.dragons.get_owned(dragon_id, owner_id, conn=conn)
             if dragon is None:
                 return UnitFeedResult(success=False, reason="no_dragon")
+            # V9: a dragon locked in a 🧬 breeding ritual cannot be fed.
+            if dragon.breeding_status == "breeding":
+                return UnitFeedResult(success=False, reason="busy", dragon=dragon)
 
             hunger_before = current_hunger(dragon, now)
             if hunger_before >= DRAGON_DEFAULT_HUNGER:
@@ -133,6 +136,9 @@ class FeedingService:
             dragon = self.dragons.get_owned(dragon_id, owner_id, conn=conn)
             if dragon is None:
                 return UnitFeedResult(success=False, reason="no_dragon")
+            # V9: a dragon locked in a 🧬 breeding ritual cannot be fed.
+            if dragon.breeding_status == "breeding":
+                return UnitFeedResult(success=False, reason="busy", dragon=dragon)
 
             hunger_before = current_hunger(dragon, now)
             if hunger_before >= DRAGON_DEFAULT_HUNGER:

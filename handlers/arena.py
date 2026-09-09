@@ -15,6 +15,7 @@ from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
 from game.arena import (
+    REASON_BUSY_BREEDING,
     REASON_LIMIT_REACHED,
     REASON_NO_DRAGON,
     REASON_NO_OPPONENT,
@@ -46,6 +47,7 @@ TITLE = "🏟️ آرنا اژدها"
 MSG_NO_DRAGON = "🐉 اول یه اژدها انتخاب کن!"
 MSG_NO_OPPONENT = "😕 حریف هم‌زور پیدا نشد! بعداً بیا."
 MSG_LIMIT = "⛔ نبردهای امروزت تموم شد!"
+MSG_BUSY_BREEDING = "🧬 اژدهات درگیر آیین پیونده!"
 MSG_ERROR = "❌ خطا! دوباره بزن."
 
 
@@ -297,6 +299,8 @@ async def _handle_find(query, arena, user_id: int) -> None:
             await _answer(query, MSG_NO_OPPONENT, alert=True)
         elif result.reason == REASON_LIMIT_REACHED:
             await _answer(query, MSG_LIMIT, alert=True)
+        elif result.reason == REASON_BUSY_BREEDING:
+            await _answer(query, MSG_BUSY_BREEDING, alert=True)
         else:
             await _answer(query, MSG_ERROR, alert=True)
         return

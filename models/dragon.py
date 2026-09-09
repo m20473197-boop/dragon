@@ -36,6 +36,10 @@ class Dragon:
     power: int = DRAGON_DEFAULT_POWER
     hunger: int = DRAGON_DEFAULT_HUNGER
     rarity: str = DEFAULT_RARITY
+    breeding_status: str = "idle"
+    breeding_finish_time: Optional[float] = None
+    parent_dragon_1: Optional[int] = None
+    parent_dragon_2: Optional[int] = None
     last_fed_time: Optional[float] = None
     is_test: int = 0
     from_egg_id: Optional[int] = None
@@ -58,6 +62,22 @@ class Dragon:
             rarity=(
                 row["rarity"] if "rarity" in row.keys() and row["rarity"]
                 else DEFAULT_RARITY
+            ),
+            # V9 breeding. Older rows have no such columns: they are idle.
+            breeding_status=(
+                row["breeding_status"]
+                if "breeding_status" in row.keys() and row["breeding_status"]
+                else "idle"
+            ),
+            breeding_finish_time=(
+                row["breeding_finish_time"]
+                if "breeding_finish_time" in row.keys() else None
+            ),
+            parent_dragon_1=(
+                row["parent_dragon_1"] if "parent_dragon_1" in row.keys() else None
+            ),
+            parent_dragon_2=(
+                row["parent_dragon_2"] if "parent_dragon_2" in row.keys() else None
             ),
             last_fed_time=row["last_fed_time"],
             is_test=row["is_test"] if "is_test" in row.keys() else 0,
@@ -84,6 +104,8 @@ class DragonRepository:
         power: int = DRAGON_DEFAULT_POWER,
         hunger: int = DRAGON_DEFAULT_HUNGER,
         rarity: str = DEFAULT_RARITY,
+        parent_dragon_1: Optional[int] = None,
+        parent_dragon_2: Optional[int] = None,
         last_fed_time: Optional[float] = None,
         is_test: int = 0,
         conn=None,
@@ -98,11 +120,13 @@ class DragonRepository:
                 """
                 INSERT INTO dragons
                     (owner_id, name, dragon_type, level, xp, hp, max_hp, power,
-                     hunger, rarity, last_fed_time, is_test, from_egg_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     hunger, rarity, parent_dragon_1, parent_dragon_2,
+                     last_fed_time, is_test, from_egg_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (owner_id, name, dragon_type, level, xp, hp, max_hp, power,
-                 hunger, rarity, last_fed_time, is_test, from_egg_id),
+                 hunger, rarity, parent_dragon_1, parent_dragon_2,
+                 last_fed_time, is_test, from_egg_id),
             )
             dragon_id = cur.lastrowid
         return Dragon(
@@ -117,6 +141,8 @@ class DragonRepository:
             power=power,
             hunger=hunger,
             rarity=rarity,
+            parent_dragon_1=parent_dragon_1,
+            parent_dragon_2=parent_dragon_2,
             last_fed_time=last_fed_time,
             is_test=is_test,
             from_egg_id=from_egg_id,
@@ -255,6 +281,66 @@ class DragonRepository:
         with db_scope(conn) as c:
             rows = c.execute(
                 "SELECT * FROM dragons WHERE owner_id = ? ORDER BY id DESC",
+                (owner_id,),
+            ).fetchall()
+        return [Dragon.from_row(r) for r in rows]
+
+    # --- breeding state (V9) -----------------------------------------------
+    def mark_breeding(
+        self,
+        dragon_ids: tuple[int, ...],
+        owner_id: int,
+        finish_time: float,
+        conn=None,
+    ) -> bool:
+        """Atomically mark several dragons as busy breeding.
+
+        The guarded UPDATE only matches dragons that are owned by
+        ``owner_id`` and currently ``idle``, and the caller checks that every
+        dragon was affected. Two simultaneous confirmations therefore cannot
+        both lock the same pair.
+        """
+        if not dragon_ids:
+            return False
+        placeholders = ",".join("?" for _ in dragon_ids)
+        with db_scope(conn) as c:
+            cur = c.execute(
+                f"UPDATE dragons SET breeding_status = 'breeding', "
+                f"breeding_finish_time = ? "
+                f"WHERE id IN ({placeholders}) AND owner_id = ? "
+                f"AND breeding_status = 'idle'",
+                (finish_time, *dragon_ids, owner_id),
+            )
+            return cur.rowcount == len(dragon_ids)
+
+    def clear_breeding(self, dragon_ids: tuple[int, ...], conn=None) -> int:
+        """Release dragons from a ritual (they become usable again)."""
+        if not dragon_ids:
+            return 0
+        placeholders = ",".join("?" for _ in dragon_ids)
+        with db_scope(conn) as c:
+            cur = c.execute(
+                f"UPDATE dragons SET breeding_status = 'idle', "
+                f"breeding_finish_time = NULL WHERE id IN ({placeholders})",
+                tuple(dragon_ids),
+            )
+            return cur.rowcount
+
+    def is_busy(self, dragon_id: int, conn=None) -> bool:
+        """True while the dragon is locked in a breeding ritual."""
+        with db_scope(conn) as c:
+            row = c.execute(
+                "SELECT breeding_status AS s FROM dragons WHERE id = ?",
+                (dragon_id,),
+            ).fetchone()
+        return row is not None and row["s"] == "breeding"
+
+    def list_idle_by_owner(self, owner_id: int, conn=None) -> list["Dragon"]:
+        """Dragons that are not currently busy in a ritual."""
+        with db_scope(conn) as c:
+            rows = c.execute(
+                "SELECT * FROM dragons WHERE owner_id = ? "
+                "AND breeding_status != 'breeding' ORDER BY id",
                 (owner_id,),
             ).fetchall()
         return [Dragon.from_row(r) for r in rows]

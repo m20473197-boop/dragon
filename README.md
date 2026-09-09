@@ -43,12 +43,14 @@ Send these as normal messages in the group (no `/`):
 | `اژدها های من` | Dragon management | Selection-first panel: one inline button per dragon, then that dragon's profile with 🥩 غذا دادن / ⬆️ ارتقا / ✏️ تغییر نام / 🔙 برگشت. **All feeding happens here.** |
 | `نام اژدها` | Name dragon      | The bot asks for a name; your next message names your most recent dragon. Sending a game command cancels it. |
 | `سردخانه`   | Cold storage     | Shows your ❄️ سردخانه (cold storage): stored 🥩 گوشت and 🐟 ماهی. |
+| `پیوند`     | 🧬 Breeding      | Same as `/breeding` — combine two dragons into a new one. |
 
 Plus one **slash** command:
 
 | Command  | Meaning | Effect |
 |----------|---------|--------|
 | `/arena` | 🏟️ Arena PvP | Opens the arena: find an opponent, leaderboard, your dragon's arena profile. See [Arena PvP](#-arena-pvp-version-7). |
+| `/breeding` | 🧬 Breeding | Combine two dragons into a new one. Also reachable as «پیوند». See [Dragon breeding](#-dragon-breeding-version-9). |
 
 ### Cold storage (سردخانه)
 
@@ -239,11 +241,13 @@ dragon_bot/
 │   ├── chat.py             # ChatRepository (active groups)
 │   ├── egg.py              # EggRepository: atomic claim, spawn, idempotent hatch
 │   ├── dragon.py           # DragonRepository
-│   └── arena.py            # ArenaBattleRepository (PvP duel history)
+│   ├── arena.py            # ArenaBattleRepository (PvP duel history)
+│   └── breeding.py         # BreedingRepository (🧬 ritual records)
 ├── game/                   # Rules only — no Telegram imports
 │   ├── actions.py          # hunt(), fish() (atomic reward + cooldown)
 │   ├── arena.py            # ArenaService: matchmaking, duel simulation, leagues
 │   ├── rarity.py           # Egg rarity/element rolling + stat scaling (V8)
+│   ├── breeding.py         # 🧬 Breeding: pairing, cost, outcomes (V9)
 │   └── eggs.py             # EggService: spawn, claim, found eggs, hatch, expire
 ├── handlers/               # Telegram only
 │   ├── __init__.py         # Router + register_all() (handlers, error handler, jobs)
@@ -255,6 +259,7 @@ dragon_bot/
 │   ├── hunt.py             # شکار
 │   ├── fishing.py          # ماهیگیری
 │   ├── arena.py            # /arena (PvP menu, battle, ranking)
+│   ├── breeding.py         # /breeding + «پیوند» (🧬 ritual menu)
 │   └── eggs.py             # تخم ها
 ├── utils/
 │   ├── text.py             # Persian digits, cooldown text, command normalization
@@ -263,6 +268,7 @@ dragon_bot/
     ├── smoke_test.py       # Tests DB + game logic (full egg lifecycle)
     ├── test_arena.py       # Arena PvP: matchmaking, balance, limits, migration
     ├── test_rarity.py      # Egg rarity/origin: chances, scaling, compatibility
+    ├── test_breeding.py    # Breeding: pairing, cost, locking, outcomes
     └── test_atomicity.py   # Concurrency tests: no duplicate rewards/dragons
 ```
 
@@ -314,7 +320,7 @@ python3 scripts/test_atomicity.py    # concurrency: no duplicate rewards/dragons
 for s in scripts/test_*.py scripts/smoke_test.py; do python3 "$s" || break; done
 ```
 
-There are 23 suites; `test_admin.py` needs `DRAGON_ADMIN_IDS=1 DRAGON_DEBUG=true`.
+There are 24 suites; `test_admin.py` needs `DRAGON_ADMIN_IDS=1 DRAGON_DEBUG=true`.
 Runs against a throwaway DB. The smoke test covers player creation,
 hunting/fishing, cooldowns, chat tracking, spawning, claiming, found eggs,
 hatching and expiry; the atomicity test runs **concurrent** hunts and claims in
@@ -629,6 +635,142 @@ simulated V7 database.
 Code: `game/rarity.py` (rules), `game/eggs.py` (rolling at hatch),
 `game/dragons.py` (`create_newborn`), `models/dragon.py` (persistence).
 Tests: `scripts/test_rarity.py` (160 checks).
+
+## 🧬 Dragon breeding (Version 9)
+
+**آیین پیوند اژدها** combines two of your own dragons into a new one. Open it
+with `/breeding` **or** the Persian word «پیوند» — both reach the same menu.
+
+```
+🧬 آیین پیوند اژدها
+
+دو اژدها رو ترکیب کن تا اژدهای جدید بگیری.
+
+۱️⃣: 🟢 آذر (Lv.۱۴)
+۲️⃣: 🟢 یخبان (Lv.۱۲)
+
+💠 هزینه: ✨ ۱۳
+✨ موجودی: ۱۲۰
+  [🐉 انتخاب اژدهای اول]
+  [🐉 انتخاب اژدهای دوم]
+  [✅ شروع آیین]
+  [🔙 برگشت]
+```
+
+The pending pair lives in `context.user_data` (temporary, per user), so nothing
+extra is stored in the database until the ritual actually starts. Every screen
+is edited in place.
+
+### Requirements
+
+Both parents must be **owned by the same player**, **distinct**, **not busy**
+and at least **Level 10** (`BREEDING_MIN_LEVEL`); the player needs at least two
+dragons. Anything else is refused with a short toast — under-level dragons are
+even marked `⛔` in the chooser so the reason is obvious before tapping.
+
+### Cost (✨ اتر)
+
+| Rarity | Cost |
+| --- | --- |
+| ⚪ معمولی | ✨ 5 |
+| 🟢 کمیاب | ✨ 10 |
+| 🔵 حماسی | ✨ 20 |
+| 🟣 افسانه‌ای | ✨ 40 |
+| 🟡 اسطوره‌ای | ✨ 80 |
+
+The base price is the **rarest parent's** cost, so a pair of a given rarity
+costs exactly the table value. When **both** parents are 🟢 or better the
+ritual costs a ×1.3 premium — that is what makes breeding two rare dragons
+more expensive than pairing a rare with a common one.
+
+### The ritual
+
+Confirming charges the aether and locks both parents for
+`BREEDING_DURATION_SECONDS` (**12 hours**):
+
+```
+🧬 آیین پیوند شروع شد!
+
+🐉 آذر
++
+🐉 یخبان
+
+✨ -۱۳   موجودی: ✨ ۱۰۷
+
+⏳ زمان باقی‌مانده:
+۱۲ ساعت
+```
+
+**While breeding, both parents are unavailable everywhere**: they cannot enter
+the arena (nor be matched as someone else's opponent), cannot be fed, cannot be
+upgraded, and drop out of the breeding chooser. Their dragon page shows
+`🧬 درگیر آیین پیوند`. The `breeding_sweep` job finishes due rituals every
+minute and announces the result in the group it was started in.
+
+### Outcomes
+
+| Chance | Outcome |
+| --- | --- |
+| 70 % | **Inherit** — element and rarity from one of the parents |
+| 25 % | **Hybrid** — a combined element |
+| 5 % | **Mutation** — rarer than both parents, +30 % HP and power |
+
+Hybrid pairings (order does not matter):
+
+| Parents | Child |
+| --- | --- |
+| 🔥 آتش + ❄️ یخ | 🌋 اژدهای گدازه |
+| 🔥 آتش + ⚡ صاعقه | 🌪 اژدهای طوفان |
+| ❄️ یخ + ⚡ صاعقه | 🌨 اژدهای کولاک |
+| 🌑 سایه + 🔥 آتش | 🖤 اژدهای دوزخ سایه |
+
+A hybrid roll for a pair with no configured combination falls back to
+inheritance, so the player always gets a sensible dragon. The four hybrid
+elements are deliberately **absent from every egg pool** — they can only be
+bred, never hatched.
+
+```
+🎉 آیین پیوند موفق بود!
+
+🐉 اژدهای جدید:
+
+📛 نوزاد گدازه
+🔮 عنصر: 🔥 + ❄️ ➜ 🌋 گدازه
+✨ کمیابی: 🔵 حماسی
+
+❤️ HP: ۱۶۲
+⚔️ قدرت: ۳۲
+
+🧪 جهش! ❤️ +۳۰٪  ⚔️ +۳۰٪
+```
+
+### Reuses the existing systems
+
+A bred dragon is an **ordinary row in `dragons`**, built from the existing
+rarity and element systems (`game/rarity.py`) — there is no parallel dragon
+system. It can be fed, renamed, upgraded, made active and sent to the arena
+immediately, and it records its lineage in `parent_dragon_1/2`.
+
+### Safety
+
+* Parents are locked with a guarded `UPDATE ... WHERE breeding_status='idle'`
+  that must affect **both** rows, so a double tap cannot start two rituals.
+* The aether charge and the lock share one transaction; if the lock loses a
+  race the payment is **refunded in the same transaction** — no aether is ever
+  lost. A five-tap burst is covered by a test: exactly one ritual, charged once.
+* Completion is guarded too, so a sweep running twice cannot create two
+  children.
+
+### Database
+
+`dragons` gains `breeding_status`, `breeding_finish_time`, `parent_dragon_1`
+and `parent_dragon_2`; the new `breedings` table holds one row per ritual.
+Existing dragons migrate to `idle` with no parents and **keep every stat**
+(verified against a simulated V8 database).
+
+Code: `game/breeding.py` (rules), `handlers/breeding.py` (UI),
+`models/breeding.py` (rituals), `handlers/jobs.py::breeding_sweep`.
+Tests: `scripts/test_breeding.py` (147 checks).
 
 ## 🏟️ Arena PvP (Version 7)
 

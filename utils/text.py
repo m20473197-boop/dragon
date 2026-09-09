@@ -28,11 +28,20 @@ def to_fa(number: int | str) -> str:
 
 
 def format_remaining(seconds: int) -> str:
-    """Human-friendly Persian cooldown, e.g. «۵ دقیقه و ۲۰ ثانیه»."""
+    """Human-friendly Persian cooldown, e.g. «۵ دقیقه و ۲۰ ثانیه».
+
+    Long waits (the 🧬 breeding ritual lasts hours) are rendered in hours and
+    minutes rather than a huge minute count.
+    """
     seconds = max(0, int(seconds))
     if seconds < 60:
         return f"{to_fa(seconds)} ثانیه"
     minutes, secs = divmod(seconds, 60)
+    if minutes >= 60:
+        hours, mins = divmod(minutes, 60)
+        if mins == 0:
+            return f"{to_fa(hours)} ساعت"
+        return f"{to_fa(hours)} ساعت و {to_fa(mins)} دقیقه"
     if secs == 0:
         return f"{to_fa(minutes)} دقیقه"
     return f"{to_fa(minutes)} دقیقه و {to_fa(secs)} ثانیه"

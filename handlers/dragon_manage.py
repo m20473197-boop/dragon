@@ -208,6 +208,8 @@ def profile_text(dragon, now: float | None = None, is_active: bool = False) -> s
             "",
             f"🔮 عنصر: {element_label(dragon.dragon_type)}",
             f"✨ کمیابی: {rarity_label(dragon.rarity)}",
+            *(["🧬 درگیر آیین پیوند"]
+              if getattr(dragon, "breeding_status", "idle") == "breeding" else []),
             "",
             f"⭐ Lv.{to_fa(dragon.level)}",
             f"✨ XP: {to_fa(dragon.xp)}/{to_fa(dragon.xp_required_for_next_level())}",

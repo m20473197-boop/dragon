@@ -146,6 +146,9 @@ class UpgradeService:
             dragon = self.dragons.get_owned(dragon_id, owner_id, conn=conn)
             if dragon is None:
                 return UpgradeResult(success=False, reason="no_dragon")
+            # V9: a dragon locked in a 🧬 breeding ritual cannot be upgraded.
+            if dragon.breeding_status == "breeding":
+                return UpgradeResult(success=False, reason="busy", dragon=dragon)
 
             # Price is resolved from the dragon's CURRENT level, read inside
             # the same transaction as the spend, so a concurrent upgrade can

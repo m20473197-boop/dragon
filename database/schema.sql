@@ -71,6 +71,10 @@ CREATE TABLE IF NOT EXISTS dragons (
     power        INTEGER NOT NULL DEFAULT 20,        -- base attack power
     hunger       INTEGER NOT NULL DEFAULT 100,       -- fullness 0..100 (100 = full)
     rarity       TEXT NOT NULL DEFAULT 'normal',      -- V8: key from config.RARITIES
+    breeding_status      TEXT NOT NULL DEFAULT 'idle', -- V9: idle | breeding
+    breeding_finish_time REAL,                         -- V9: when the ritual ends
+    parent_dragon_1      INTEGER,                      -- V9: first parent
+    parent_dragon_2      INTEGER,                      -- V9: second parent
     last_fed_time REAL,                              -- unix timestamp of last feeding
     is_test      INTEGER NOT NULL DEFAULT 0,         -- 1 if created via the admin test tools
     from_egg_id  INTEGER,
@@ -106,6 +110,31 @@ CREATE TABLE IF NOT EXISTS chests (
 
 CREATE INDEX IF NOT EXISTS idx_chests_group_status ON chests (group_id, status);
 CREATE INDEX IF NOT EXISTS idx_chests_status_created ON chests (status, created_time);
+
+-- Dragon breeding rituals (Version 9). One row per 🧬 آیین پیوند. A partial
+-- unique index guarantees a dragon can only take part in one active ritual,
+-- so double-tapping «تایید» can never start two.
+CREATE TABLE IF NOT EXISTS breedings (
+    breeding_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id     INTEGER NOT NULL,
+    parent1_id   INTEGER NOT NULL,
+    parent2_id   INTEGER NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'active',   -- active | done | cancelled
+    start_time   REAL NOT NULL,
+    finish_time  REAL NOT NULL,
+    chat_id      INTEGER,                          -- group to announce in
+    cost         INTEGER NOT NULL DEFAULT 0,       -- ✨ aether paid
+    child_id     INTEGER,                          -- dragon produced
+    outcome      TEXT,                             -- inherit | hybrid | mutation
+    FOREIGN KEY (owner_id)   REFERENCES players (user_id),
+    FOREIGN KEY (parent1_id) REFERENCES dragons (id),
+    FOREIGN KEY (parent2_id) REFERENCES dragons (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_breedings_due
+    ON breedings (status, finish_time);
+CREATE INDEX IF NOT EXISTS idx_breedings_owner
+    ON breedings (owner_id, status);
 
 -- Arena PvP battles (Version 7). Replaces the old PvE `battles` table: every
 -- row is one finished duel between two players' dragons. It is an append-only

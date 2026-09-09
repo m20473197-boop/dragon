@@ -65,6 +65,11 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
         # V8 rarity: every dragon that already exists is ⚪ معمولی, so their
         # current stats stay exactly as they are.
         "rarity": f"TEXT NOT NULL DEFAULT '{DEFAULT_RARITY}'",
+        # V9 breeding: existing dragons are idle and free to breed.
+        "breeding_status": "TEXT NOT NULL DEFAULT 'idle'",
+        "breeding_finish_time": "REAL",
+        "parent_dragon_1": "INTEGER",
+        "parent_dragon_2": "INTEGER",
     },
 }
 
@@ -80,6 +85,14 @@ _EXPECTED_INDEXES: dict[str, str] = {
         "CREATE INDEX IF NOT EXISTS idx_arena_leaderboard "
         "ON players (arena_points DESC)"
     ),
+    "idx_breedings_due": (
+        "CREATE INDEX IF NOT EXISTS idx_breedings_due "
+        "ON breedings (status, finish_time)"
+    ),
+    "idx_breedings_owner": (
+        "CREATE INDEX IF NOT EXISTS idx_breedings_owner "
+        "ON breedings (owner_id, status)"
+    ),
 }
 
 # Tables added after the first release. ``init_db()`` creates them from
@@ -87,6 +100,7 @@ _EXPECTED_INDEXES: dict[str, str] = {
 _INDEX_TABLES: dict[str, tuple[str, ...]] = {
     "arena_battles": ("idx_arena_battles_challenger",),
     "players": ("idx_arena_leaderboard",),
+    "breedings": ("idx_breedings_due", "idx_breedings_owner"),
 }
 
 # Tables removed in a later version. V7 replaced the PvE ``battles`` table with

@@ -34,6 +34,7 @@ COMMAND_NAME_DRAGON = "نام اژدها"
 COMMAND_STORAGE = "سردخانه"
 COMMAND_MARKET = "بازار"
 COMMAND_TREASURY = "خزانه"   # read-only inventory view
+COMMAND_BREEDING = "پیوند"   # 🧬 dragon breeding (also /breeding)
 COMMAND_ADMIN_PANEL = "پنل مدیریت"
 COMMAND_ADMIN_TEST_EGG = "ساخت تخم تست"
 COMMAND_ADMIN_ADD_FOOD = "اضافه غذا"
@@ -494,7 +495,72 @@ DRAGON_TYPES: dict[str, dict] = {
     # V8 elements.
     "lightning":  {"name": "اژدهای صاعقه",  "emoji": "⚡", "element": "صاعقه"},
     "primordial": {"name": "اژدهای نخستین", "emoji": "🌌", "element": "نخستین"},
+    # V9 hybrid elements — only obtainable from 🧬 breeding, never from eggs.
+    "lava":       {"name": "اژدهای گدازه",  "emoji": "🌋", "element": "گدازه"},
+    "storm":      {"name": "اژدهای طوفان",  "emoji": "🌪", "element": "طوفان"},
+    "blizzard":   {"name": "اژدهای کولاک",  "emoji": "🌨", "element": "کولاک"},
+    "inferno_shadow": {"name": "اژدهای دوزخ سایه", "emoji": "🖤",
+                       "element": "دوزخ سایه"},
 }
+
+# Elements that can only be produced by breeding. They are deliberately absent
+# from every EGG_TYPES pool so eggs can never hatch them.
+HYBRID_DRAGON_TYPES: tuple[str, ...] = (
+    "lava", "storm", "blizzard", "inferno_shadow",
+)
+
+
+# --- Dragon breeding (Version 9) --------------------------------------------
+# 🧬 آیین پیوند اژدها: combine two of your own dragons into a new one. Reuses
+# the existing rarity and element systems — no parallel dragon system.
+COMMAND_BREEDING_SLASH = "breeding"     # /breeding
+
+# Entry requirements.
+BREEDING_MIN_LEVEL: int = 10            # both parents must be at least this
+BREEDING_MIN_DRAGONS: int = 2           # a player needs at least two dragons
+
+# How long the ritual takes.
+BREEDING_DURATION_SECONDS: int = 12 * 60 * 60   # 12 hours
+# How often the finished-breeding sweep runs.
+BREEDING_SWEEP_INTERVAL_SECONDS: int = 60
+
+# Cost in ✨ اتر, by rarity. The headline price of a ritual is the cost of its
+# *rarest* parent, so the table below is exactly what a player pays for a pair
+# of that rarity (⚪+⚪ = 5, 🟢+🟢 = 10 before the premium below).
+BREEDING_COST_BY_RARITY: dict[str, int] = {
+    RARITY_NORMAL: 5,
+    RARITY_RARE: 10,
+    RARITY_EPIC: 20,
+    RARITY_LEGENDARY: 40,
+    RARITY_MYTHICAL: 80,
+}
+# "The cost should increase if both parents are rare": when BOTH parents are
+# 🟢 کمیاب or better, the ritual costs a premium on top of the base price.
+# A ⚪ pair is unaffected, so the table above holds exactly for normal dragons.
+BREEDING_MATCHED_PAIR_MULTIPLIER: float = 1.30
+
+# Outcome chances (must total 100).
+BREEDING_OUTCOME_INHERIT: int = 70      # a dragon like one of the parents
+BREEDING_OUTCOME_HYBRID: int = 25       # a hybrid element
+BREEDING_OUTCOME_MUTATION: int = 5      # a mutated, rarer dragon
+
+# A mutation is always at least one rarity step above the best parent and adds
+# a flat stat bonus on top of the usual rarity scaling.
+BREEDING_MUTATION_HP_BONUS: float = 0.30    # +30% HP
+BREEDING_MUTATION_POWER_BONUS: float = 0.30  # +30% power
+
+# Hybrid elements. The key is the *unordered* pair of parent elements, so
+# fire+ice and ice+fire both map to the same child. Each hybrid is a real
+# entry in DRAGON_TYPES below, so every existing display path just works.
+BREEDING_HYBRIDS: dict[frozenset, str] = {
+    frozenset({"fire", "ice"}): "lava",
+    frozenset({"fire", "lightning"}): "storm",
+    frozenset({"ice", "lightning"}): "blizzard",
+    frozenset({"shadow", "fire"}): "inferno_shadow",
+}
+
+# Newborns from a ritual are named after their element until renamed.
+BREEDING_CHILD_NAME_PREFIX: str = "نوزاد"
 
 
 def require_token() -> str:

@@ -93,7 +93,10 @@ def main() -> None:
     assert egg is not None
     assert egg.status == STATUS_AVAILABLE and egg.owner_id is None
     assert egg.spawn_time == t0 and egg.hatch_time is None
-    assert egg.egg_type in {"common", "rare", "legendary"}
+    # Egg types are config-driven (V8 added more), so derive the expectation
+    # instead of pinning a fixed set. Special reward-only eggs never spawn.
+    assert egg.egg_type in config.EGG_TYPES, egg.egg_type
+    assert config.EGG_TYPES[egg.egg_type]["weight"] > 0, egg.egg_type
     print(f"✓ wild egg #{egg.id} spawned (type={egg.egg_type})")
 
     # 6. Only one unclaimed egg per group at a time.

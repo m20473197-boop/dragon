@@ -26,6 +26,8 @@ from config import (
     COMMAND_ADMIN_PANEL,
     COMMAND_ADMIN_TEST_EGG,
     COMMAND_ARENA_SLASH,
+    COMMAND_BREEDING,
+    COMMAND_BREEDING_SLASH,
     COMMAND_EGGS,
     COMMAND_FISHING,
     COMMAND_HUNT,
@@ -34,12 +36,14 @@ from config import (
     COMMAND_NAME_DRAGON,
     COMMAND_STORAGE,
     COMMAND_TREASURY,
+    BREEDING_SWEEP_INTERVAL_SECONDS,
     CLEANUP_SWEEP_INTERVAL_SECONDS,
     CHEST_CHECK_INTERVAL_SECONDS,
     HATCH_SWEEP_INTERVAL_SECONDS,
     SPAWN_CHECK_INTERVAL_SECONDS,
 )
 from game.arena import ArenaService
+from game.breeding import BreedingService
 from game.dragons import DragonService
 from game.eggs import EggService
 from game.feeding import FeedingService
@@ -54,6 +58,11 @@ from handlers.arena import (
     arena_callback,
     arena_command,
 )
+from handlers.breeding import (
+    PREFIX as BREEDING_PREFIX,
+    breeding_callback,
+    breeding_command,
+)
 from handlers.common import help_command, start_command
 from handlers.eggs import eggs_command
 from handlers.errors import on_error
@@ -61,7 +70,7 @@ from handlers.fishing import fishing_command
 from handlers.hunt import hunt_command
 from handlers.chests import CHEST_PREFIX, open_chest_callback
 from handlers.cleanup import cleanup_tick
-from handlers.jobs import chest_tick, hatch_sweep, spawn_tick
+from handlers.jobs import breeding_sweep, chest_tick, hatch_sweep, spawn_tick
 from handlers.market import (
     PREFIX as MARKET_PREFIX,
     market_callback,
@@ -89,6 +98,7 @@ from handlers.treasury import (
 from handlers.tracking import track_from_update
 from admin.service import AdminService
 from models.arena import ArenaBattleRepository
+from models.breeding import BreedingRepository
 from models.chat import ChatRepository
 from models.chest import ChestRepository
 from models.dragon import DragonRepository
@@ -108,6 +118,7 @@ COMMAND_MAP = {
     COMMAND_STORAGE: storage_command,
     COMMAND_MARKET: market_command,
     COMMAND_TREASURY: treasury_command,
+    COMMAND_BREEDING: breeding_command,
     COMMAND_ADMIN_PANEL: admin_panel_command,
     COMMAND_ADMIN_TEST_EGG: admin_test_egg_command,
 }
@@ -153,6 +164,7 @@ def _setup_shared_objects(application: Application) -> None:
     application.bot_data["chest_repo"] = ChestRepository()
     application.bot_data["dragon_repo"] = DragonRepository()
     application.bot_data["arena_battle_repo"] = ArenaBattleRepository()
+    application.bot_data["breeding_repo"] = BreedingRepository()
 
     # Cold storage (سردخانه) holds every player's meat and fish. It is shared
     # by gathering (deposit) and feeding (consume).
@@ -206,6 +218,14 @@ def _setup_shared_objects(application: Application) -> None:
         battles=application.bot_data["arena_battle_repo"],
         dragon_service=application.bot_data["dragon_service"],
     )
+    # 🧬 Breeding reuses the dragon, rarity and currency systems; it adds no
+    # parallel dragon storage of its own.
+    application.bot_data["breeding_service"] = BreedingService(
+        dragons=application.bot_data["dragon_repo"],
+        players=application.bot_data["player_repo"],
+        breedings=application.bot_data["breeding_repo"],
+        dragon_service=application.bot_data["dragon_service"],
+    )
     application.bot_data["admin_service"] = AdminService(
         players=application.bot_data["player_repo"],
         chats=application.bot_data["chat_repo"],
@@ -228,6 +248,12 @@ def _setup_jobs(application: Application) -> None:
     jq.run_repeating(chest_tick, interval=CHEST_CHECK_INTERVAL_SECONDS, first=45, name="chest_tick")
     # Deletes expired / already-claimed egg and chest messages. Deadlines are
     # read from the database, so cleanups pending before a restart still run.
+    jq.run_repeating(
+        breeding_sweep,
+        interval=BREEDING_SWEEP_INTERVAL_SECONDS,
+        first=50,
+        name="breeding_sweep",
+    )
     jq.run_repeating(
         cleanup_tick,
         interval=CLEANUP_SWEEP_INTERVAL_SECONDS,
@@ -252,6 +278,10 @@ def register_all(application: Application) -> None:
     application.add_handler(CommandHandler("help", help_command))
     # Arena PvP is a slash command, per the V7 spec.
     application.add_handler(CommandHandler(COMMAND_ARENA_SLASH, arena_command))
+    # 🧬 Breeding also has a slash command; «پیوند» routes to the same handler.
+    application.add_handler(
+        CommandHandler(COMMAND_BREEDING_SLASH, breeding_command)
+    )
 
     # Inline-button claim: "claim_egg:<id>"
     application.add_handler(
@@ -275,6 +305,11 @@ def register_all(application: Application) -> None:
     # Arena buttons: "ar:<action>"
     application.add_handler(
         CallbackQueryHandler(arena_callback, pattern=rf"^{ARENA_PREFIX}")
+    )
+
+    # Breeding buttons: "bd:<action>[:<dragon_id>]"
+    application.add_handler(
+        CallbackQueryHandler(breeding_callback, pattern=rf"^{BREEDING_PREFIX}")
     )
 
     # Dragon management panel: "dg:<action>[:<dragon_id>...]"

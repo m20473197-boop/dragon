@@ -222,3 +222,62 @@ async def chest_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
             chest_service.chests.clear_message(chest.id)
         except Exception:
             logger.exception("Could not delete expired chest %s message", chest.id)
+
+
+async def breeding_sweep(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Finish 🧬 breeding rituals whose timer elapsed and announce the child.
+
+    Each ritual is completed inside the service (guarded, so a child can never
+    be created twice); announcing is best-effort per ritual so one failed
+    send never blocks the rest.
+    """
+    service = context.bot_data.get("breeding_service")
+    if service is None:
+        return
+
+    try:
+        results = service.collect_due()
+    except Exception:
+        logger.exception("breeding_sweep: could not collect due rituals")
+        return
+
+    for result in results:
+        try:
+            await _announce_breeding(context, result)
+        except Exception:
+            logger.exception(
+                "breeding_sweep: could not announce breeding %s",
+                result.breeding.breeding_id,
+            )
+
+
+async def _announce_breeding(context: ContextTypes.DEFAULT_TYPE, result) -> None:
+    """Post the «آیین پیوند موفق بود» card in the group it was started in."""
+    from handlers.breeding import result_text
+
+    if result.chat_id is None:
+        return
+
+    players: PlayerRepository = context.bot_data["player_repo"]
+    try:
+        owner = players.get(result.owner_id)
+    except Exception:
+        owner = None
+
+    if owner is not None and owner.username:
+        owner_link = (
+            f"<a href='https://t.me/{html.escape(owner.username)}'>"
+            f"@{html.escape(owner.username)}</a>"
+        )
+    else:
+        owner_link = f"<a href='tg://user?id={result.owner_id}'>کاربر</a>"
+
+    text = f"{result_text(result)}\n👤 {owner_link}"
+    sent = await safe_send_message(
+        context, result.chat_id, text, what="breeding announcement",
+        parse_mode="HTML",
+    )
+    if sent is None:
+        logger.warning(
+            "Could not announce breeding in chat %s", result.chat_id
+        )

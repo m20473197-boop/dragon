@@ -58,6 +58,7 @@ logger = logging.getLogger(__name__)
 
 # Reasons a search / battle can fail (handlers map these to Persian text).
 REASON_NO_DRAGON = "no_dragon"
+REASON_BUSY_BREEDING = "busy_breeding"
 REASON_NO_OPPONENT = "no_opponent"
 REASON_LIMIT_REACHED = "limit_reached"
 REASON_ERROR = "error"
@@ -353,6 +354,9 @@ class ArenaService:
             dragon = self.dragons.get(player.active_dragon_id)
             if dragon is None or dragon.owner_id != player.user_id:
                 continue
+            # V9: dragons busy in a breeding ritual are not available to fight.
+            if getattr(dragon, "breeding_status", "idle") == "breeding":
+                continue
             candidates.append((player, dragon))
 
         if not candidates:
@@ -401,6 +405,9 @@ class ArenaService:
         mine = self.active_dragon(user_id)
         if mine is None:
             return ArenaResult(ok=False, reason=REASON_NO_DRAGON)
+        # V9: a dragon locked in a 🧬 breeding ritual cannot enter the arena.
+        if getattr(mine, "breeding_status", "idle") == "breeding":
+            return ArenaResult(ok=False, reason=REASON_BUSY_BREEDING)
 
         # Daily limit is checked (but not yet consumed) before searching.
         limit_left = self.battles_left(user_id, now)

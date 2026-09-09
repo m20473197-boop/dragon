@@ -13,6 +13,7 @@ from config import (
     COMMAND_NAME_DRAGON,
     COMMAND_STORAGE,
     COMMAND_TREASURY,
+    COMMAND_BREEDING,
 )
 from handlers.tracking import track_from_update
 
@@ -28,6 +29,7 @@ WELCOME_TEXT = (
     f"❄️ {COMMAND_STORAGE}\n"
     f"🏪 {COMMAND_MARKET}\n"
     f"🏰 {COMMAND_TREASURY}\n"
+    f"🧬 {COMMAND_BREEDING}\n"
     "🏟️ /arena"
 )
 
