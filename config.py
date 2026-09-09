@@ -279,14 +279,68 @@ MARKET_ITEMS: dict[str, dict] = {
             "amount": 1, "kind": "egg", "egg_type": "common",
         },
     },
+    # Tool upgrades are not "items": they are handled by game.tools, but the
+    # categories must exist so the market router accepts them.
+    "rod": {},
+    "hunt": {},
     # Reserved for future content — no items yet, on purpose.
     "special": {},
 }
 
 # 'short' is the compact button label; 'name' is the page title.
+# --- Tool progression (Version 6) -------------------------------------------
+# Every player owns a 🎣 fishing rod and a 🏹 hunting weapon, both starting at
+# level 1. Upgrading is paid in 🪨 obsidian and raises the reward range of the
+# matching gathering action. Levels are stored on the player row.
+#
+# Each entry: display name/emoji, the obsidian cost to REACH this level
+# (level 1 is free — everyone starts there) and the reward range it rolls.
+TOOL_MIN_LEVEL: int = 1
+TOOL_MAX_LEVEL: int = 10
+
+FISHING_RODS: dict[int, dict] = {
+    1:  {"name": "قلاب چوبی",    "emoji": "🎣", "cost": 0,      "min": 5,   "max": 10},
+    2:  {"name": "قلاب آهنی",    "emoji": "🎣", "cost": 2000,   "min": 8,   "max": 15},
+    3:  {"name": "قلاب فولادی",  "emoji": "🎣", "cost": 5000,   "min": 12,  "max": 20},
+    4:  {"name": "قلاب طلایی",   "emoji": "🎣", "cost": 10000,  "min": 15,  "max": 25},
+    5:  {"name": "قلاب جادویی",  "emoji": "✨", "cost": 20000,  "min": 20,  "max": 30},
+    6:  {"name": "قلاب کریستالی", "emoji": "✨", "cost": 35000,  "min": 25,  "max": 40},
+    7:  {"name": "قلاب اقیانوس", "emoji": "🌊", "cost": 60000,  "min": 35,  "max": 50},
+    8:  {"name": "قلاب باستانی", "emoji": "🔮", "cost": 100000, "min": 45,  "max": 65},
+    9:  {"name": "قلاب افسانه‌ای", "emoji": "🌌", "cost": 170000, "min": 60,  "max": 85},
+    10: {"name": "قلاب اژدها",   "emoji": "🐉", "cost": 300000, "min": 80,  "max": 120},
+}
+
+# ``prey`` lists which HUNT_PREY keys this weapon can catch. Higher levels keep
+# the full roster (a better weapon never hunts fewer animals).
+HUNTING_WEAPONS: dict[int, dict] = {
+    1:  {"name": "تیرکمان",      "emoji": "🪃", "cost": 0,      "min": 3,   "max": 6,
+         "prey": ("rabbit",)},
+    2:  {"name": "کمان چوبی",    "emoji": "🏹", "cost": 2000,   "min": 5,   "max": 10,
+         "prey": ("rabbit", "deer")},
+    3:  {"name": "کمان آهنی",    "emoji": "🏹", "cost": 5000,   "min": 8,   "max": 15,
+         "prey": ("rabbit", "deer", "gazelle")},
+    4:  {"name": "کمان فولادی",  "emoji": "🏹", "cost": 10000,  "min": 12,  "max": 20,
+         "prey": ("rabbit", "deer", "gazelle")},
+    5:  {"name": "کمان جادویی",  "emoji": "✨", "cost": 20000,  "min": 18,  "max": 30,
+         "prey": ("rabbit", "deer", "gazelle")},
+    6:  {"name": "تفنگ شکاری",   "emoji": "🔫", "cost": 35000,  "min": 25,  "max": 40,
+         "prey": ("rabbit", "deer", "gazelle")},
+    7:  {"name": "تفنگ پیشرفته", "emoji": "🔫", "cost": 60000,  "min": 35,  "max": 55,
+         "prey": ("rabbit", "deer", "gazelle")},
+    8:  {"name": "سلاح انرژی",   "emoji": "⚡", "cost": 100000, "min": 50,  "max": 70,
+         "prey": ("rabbit", "deer", "gazelle")},
+    9:  {"name": "سلاح باستانی", "emoji": "🌑", "cost": 170000, "min": 70,  "max": 100,
+         "prey": ("rabbit", "deer", "gazelle")},
+    10: {"name": "سلاح اژدها",   "emoji": "🐉", "cost": 300000, "min": 100, "max": 150,
+         "prey": ("rabbit", "deer", "gazelle")},
+}
+
 MARKET_CATEGORIES: dict[str, dict] = {
     "food":    {"name": "غذا", "short": "غذا", "emoji": "🥩"},
     "eggs":    {"name": "تخم اژدها", "short": "تخم", "emoji": "🥚"},
+    "rod":     {"name": "ابزار ماهیگیری", "short": "ابزار ماهیگیری", "emoji": "🎣"},
+    "hunt":    {"name": "ابزار شکار", "short": "ابزار شکار", "emoji": "🏹"},
     "special": {"name": "آیتم‌های ویژه", "short": "ویژه", "emoji": "✨"},
 }
 

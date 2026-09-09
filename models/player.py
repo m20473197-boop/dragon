@@ -26,6 +26,10 @@ _COUNT_COLUMNS = {"hunt_count", "fishing_count"}
 # Currency columns that may be spent (whitelisted: interpolated into SQL).
 _CURRENCY_COLUMNS = {"obsidian", "aether"}
 
+# Whitelisted tool level columns (V6). Interpolated into SQL, so this set is
+# the security boundary — never build a tool column name from user input.
+_TOOL_COLUMNS = {"rod_level", "weapon_level"}
+
 
 @dataclass
 class Player:
@@ -42,6 +46,8 @@ class Player:
     active_dragon_id: Optional[int] = None
     obsidian: int = 0
     aether: int = 0
+    rod_level: int = 1
+    weapon_level: int = 1
 
     @classmethod
     def from_row(cls, row) -> "Player":
@@ -62,6 +68,9 @@ class Player:
             ),
             obsidian=row["obsidian"] if "obsidian" in keys else 0,
             aether=row["aether"] if "aether" in keys else 0,
+            # Older rows (pre-migration reads) default to level 1.
+            rod_level=row["rod_level"] if "rod_level" in keys else 1,
+            weapon_level=row["weapon_level"] if "weapon_level" in keys else 1,
         )
 
 
@@ -257,6 +266,50 @@ class PlayerRepository:
         return None
 
     # --- active dragon -----------------------------------------------------
+    # --- tools (V6) --------------------------------------------------------
+    def get_tool_level(self, user_id: int, column: str, conn=None) -> int:
+        """Current level of a tool column (1 when the player is unknown)."""
+        if column not in _TOOL_COLUMNS:
+            raise ValueError(f"Unknown tool column: {column!r}")
+        with db_scope(conn) as c:
+            row = c.execute(
+                f"SELECT {column} AS lvl FROM players WHERE user_id = ?", (user_id,)
+            ).fetchone()
+        return row["lvl"] if row is not None else 1
+
+    def upgrade_tool(
+        self,
+        user_id: int,
+        column: str,
+        cost: int,
+        expected_level: int,
+        max_level: int,
+        conn=None,
+    ) -> bool:
+        """Atomically pay ``cost`` obsidian and raise a tool by one level.
+
+        A single guarded UPDATE does both, and only when the tool is still at
+        ``expected_level``, the player can afford it, and the cap is not
+        reached. So concurrent taps cannot skip a level, overspend, or push a
+        tool past ``max_level`` — exactly one of them can match.
+        """
+        if column not in _TOOL_COLUMNS:
+            raise ValueError(f"Unknown tool column: {column!r}")
+        with db_scope(conn) as c:
+            cur = c.execute(
+                f"""
+                UPDATE players
+                   SET {column} = {column} + 1,
+                       obsidian = obsidian - ?
+                 WHERE user_id = ?
+                   AND {column} = ?
+                   AND {column} < ?
+                   AND obsidian >= ?
+                """,
+                (cost, user_id, expected_level, max_level, cost),
+            )
+            return cur.rowcount == 1
+
     def set_active_dragon(self, user_id: int, dragon_id: Optional[int], conn=None) -> bool:
         """Mark one dragon as the player's active dragon.
 

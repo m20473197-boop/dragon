@@ -57,11 +57,13 @@ def section_keyboard() -> InlineKeyboardMarkup:
 
 # --- texts ------------------------------------------------------------------
 def treasury_text(contents) -> str:
-    """Home screen: the title and the two currencies, nothing else."""
+    """Home screen: the two currencies and the player's tool levels."""
     return (
         f"{TREASURY_TITLE}\n\n"
         f"🪨 ابسیدین: {to_fa(contents.obsidian)}\n"
-        f"✨ اتر: {to_fa(contents.aether)}"
+        f"✨ اتر: {to_fa(contents.aether)}\n\n"
+        f"🎣 قلاب: Lv.{to_fa(contents.rod_level)}\n"
+        f"🏹 ابزار شکار: Lv.{to_fa(contents.weapon_level)}"
     )
 
 

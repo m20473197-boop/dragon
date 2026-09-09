@@ -891,3 +891,65 @@ per-level stat bonuses and the database schema are unchanged.
 ```
 
 Covered by `scripts/test_upgrade_costs.py` (67 checks).
+
+## 🎣🏹 Tool progression (Version 6)
+
+Every player owns a **🎣 fishing rod** and a **🏹 hunting weapon**, both starting
+at Lv.1. A tool's level sets the reward range of its gathering action, and the
+weapon also decides which prey can be caught. Upgrades are paid in 🪨 obsidian,
+one level at a time, capped at Lv.10.
+
+| Lv | 🎣 Rod | 🐟 Fish | 🏹 Weapon | 🥩 Meat | 🪨 Cost |
+| --- | --- | --- | --- | --- | --- |
+| 1 | قلاب چوبی | 5–10 | تیرکمان | 3–6 | — |
+| 2 | قلاب آهنی | 8–15 | کمان چوبی | 5–10 | 2 000 |
+| 3 | قلاب فولادی | 12–20 | کمان آهنی | 8–15 | 5 000 |
+| 4 | قلاب طلایی | 15–25 | کمان فولادی | 12–20 | 10 000 |
+| 5 | قلاب جادویی | 20–30 | کمان جادویی | 18–30 | 20 000 |
+| 6 | قلاب کریستالی | 25–40 | تفنگ شکاری | 25–40 | 35 000 |
+| 7 | قلاب اقیانوس | 35–50 | تفنگ پیشرفته | 35–55 | 60 000 |
+| 8 | قلاب باستانی | 45–65 | سلاح انرژی | 50–70 | 100 000 |
+| 9 | قلاب افسانه‌ای | 60–85 | سلاح باستانی | 70–100 | 170 000 |
+| 10 | قلاب اژدها | 80–120 | سلاح اژدها | 100–150 | 300 000 |
+
+**Prey unlocking:** Lv.1 catches 🐇 rabbit only, Lv.2 adds 🦌 deer, Lv.3+ adds
+🦌 gazelle. A higher weapon never hunts fewer animals.
+
+### Where it lives
+
+* `config.FISHING_RODS` / `config.HUNTING_WEAPONS` — the tables above.
+* `game/tools.py` — `ToolService` (levels, costs, upgrades) plus
+  `reward_range()` and `allowed_prey()`. No Telegram imports.
+* `players.rod_level` / `players.weapon_level` — added by
+  `database/migrate.py`, so **existing players are upgraded in place and start
+  at Lv.1**, exactly like new ones.
+* `game/actions.py` reads the level and rolls the matching range; cooldowns,
+  egg chances and XP are untouched.
+
+### Market & treasury
+
+`🏪 بازار` gains `[🎣 ابزار ماهیگیری]` and `[🏹 ابزار شکار]`. Each shows the
+current tool, its reward range and the next cost, with one `[⬆️ ارتقا]` button
+(hidden at Lv.10):
+
+```
+🎣 ابزار ماهیگیری          🎉 ارتقا موفق!         🏰 خزانه اژدها
+
+🎣 قلاب فعلی:              🎣 قلاب:               🪨 ابسیدین: ۵۰۰
+Lv.۱ — قلاب چوبی           Lv.۱ ➜ Lv.۲            ✨ اتر: ۳
+🐟 ۵-۱۰                    ✨ قلاب آهنی
+                                                  🎣 قلاب: Lv.۲
+⬆️ ارتقا: 🪨 ۲۰۰۰          🪨 -۲۰۰۰   💰 ۵۰۰       🏹 ابزار شکار: Lv.۱
+```
+
+Too poor → `❌ ابسیدین کافی نیست!`; at the cap → `🏆 حداکثر سطحه!`.
+
+### Safety
+
+Payment and the level increment are ONE guarded `UPDATE` that also re-checks
+the current level and the cap, so concurrent taps cannot skip a level,
+overspend or exceed Lv.10 — verified with 10 simultaneous upgrades against a
+balance for exactly one. Levels are clamped on read, so a corrupt row can never
+crash gathering or pay out a huge reward. No durability, crafting or trading.
+
+Covered by `scripts/test_tools.py` (124 checks).

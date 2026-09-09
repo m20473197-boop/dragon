@@ -115,8 +115,10 @@ def main():
     check("home shows obsidian", "🪨 ابسیدین: ۰" in text, text)
     check("home shows aether", "✨ اتر: ۰" in text, text)
     check("zero is shown, not hidden", "۰" in text, text)
-    check("home is short (title + 2 lines)",
-          len([l for l in text.split("\n") if l.strip()]) == 3, text)
+    check("home is short (title + currencies + 2 tools)",
+          len([l for l in text.split("\n") if l.strip()]) == 5, text)
+    check("home shows the rod level", "🎣 قلاب: Lv.۱" in text, text)
+    check("home shows the weapon level", "🏹 ابزار شکار: Lv.۱" in text, text)
     check("home has the food button", "🥩 غذا" in labels(markup), labels(markup))
     check("home has the eggs button", "🥚 تخم‌ها" in labels(markup), labels(markup))
     check("home has no unnecessary buttons", len(labels(markup)) == 2, labels(markup))

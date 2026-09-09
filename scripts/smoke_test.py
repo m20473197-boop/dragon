@@ -55,7 +55,11 @@ def main() -> None:
     assert r.success, r
     assert r.prey_key in HUNT_PREY, r.prey_key
     prey = HUNT_PREY[r.prey_key]
-    assert prey["meat_min"] <= r.meat_gained <= prey["meat_max"], (r.prey_key, r.meat_gained)
+    # Meat now comes from the player's 🏹 weapon level, not the prey entry.
+    from game.tools import WEAPON, allowed_prey, reward_range
+    w_min, w_max = reward_range(WEAPON, 1)
+    assert w_min <= r.meat_gained <= w_max, (r.prey_key, r.meat_gained)
+    assert r.prey_key in allowed_prey(1), r.prey_key
     assert players.get(1001).meat == r.meat_gained  # persisted
     r2 = actions.hunt(players, player)
     assert not r2.success and r2.cooldown_remaining > 290, r2
@@ -63,7 +67,10 @@ def main() -> None:
 
     # 3. Fishing yields 10-20 fish and sets its own cooldown.
     f = actions.fish(players, player)
-    assert f.success and 10 <= f.fish_gained <= 20, f
+    # Fish now comes from the player's 🎣 rod level.
+    from game.tools import ROD as _ROD, reward_range as _rr
+    _fmin, _fmax = _rr(_ROD, 1)
+    assert f.success and _fmin <= f.fish_gained <= _fmax, f
     assert players.get(1001).fish == f.fish_gained
     f2 = actions.fish(players, player)
     assert not f2.success and f2.cooldown_remaining > 590, f2

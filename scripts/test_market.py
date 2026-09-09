@@ -59,9 +59,11 @@ def main() -> None:
 
     # 1. The market screen offers the three categories and a back button.
     labels = [b.text for row in categories_keyboard().inline_keyboard for b in row]
-    assert labels == ["🥩 غذا", "🥚 تخم", "✨ ویژه", "🔙"], labels
+    assert labels == [
+        "🥩 غذا", "🥚 تخم", "🎣 ابزار ماهیگیری", "🏹 ابزار شکار", "✨ ویژه", "🔙",
+    ], labels
     assert "🏪 بازار" in market_text(0)
-    assert set(MARKET_CATEGORIES) == {"food", "eggs", "special"}
+    assert set(MARKET_CATEGORIES) == {"food", "eggs", "rod", "hunt", "special"}
     print("✓ «بازار» shows the three categories + back button")
 
     # 2. Food shop lists meat and fish with prices and buy buttons.

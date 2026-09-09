@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS players (
     active_dragon_id  INTEGER,                       -- currently selected/active dragon (one per user)
     obsidian          INTEGER NOT NULL DEFAULT 0,    -- 🪨 ابسیدین (main currency)
     aether            INTEGER NOT NULL DEFAULT 0,    -- ✨ اتر (rare currency)
+    rod_level         INTEGER NOT NULL DEFAULT 1,    -- 🎣 fishing rod level (V6)
+    weapon_level      INTEGER NOT NULL DEFAULT 1,    -- 🏹 hunting weapon level (V6)
     created_at        TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );

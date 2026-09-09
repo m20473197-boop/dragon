@@ -7,6 +7,7 @@ reads the values the existing systems already maintain:
 * food        -> :class:`game.storage.ColdStorageService` (the single owner of
   meat/fish), never the player row directly
 * eggs        -> the ``eggs`` table, grouped by type
+* tools       -> ``players.rod_level`` / ``players.weapon_level`` (V6)
 
 Nothing here writes to the database, so the treasury can never desync from —
 or duplicate — the cold storage, market or chest systems.
@@ -18,8 +19,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-from config import CURRENCIES, EGG_TYPES
+from config import CURRENCIES, EGG_TYPES, TOOL_MIN_LEVEL
 from game.storage import ColdStorageService
+from game.tools import ROD, WEAPON, clamp_level, tool_display
 from models.egg import EggRepository
 from models.player import PlayerRepository
 
@@ -43,6 +45,16 @@ class TreasuryContents:
     meat: int = 0
     fish: int = 0
     eggs: list[EggStack] = field(default_factory=list)
+    rod_level: int = TOOL_MIN_LEVEL
+    weapon_level: int = TOOL_MIN_LEVEL
+
+    @property
+    def rod_name(self) -> str:
+        return tool_display(ROD, self.rod_level)[1]
+
+    @property
+    def weapon_name(self) -> str:
+        return tool_display(WEAPON, self.weapon_level)[1]
 
     @property
     def total_eggs(self) -> int:
@@ -97,6 +109,10 @@ class TreasuryService:
             meat=food.meat,
             fish=food.fish,
             eggs=stacks,
+            rod_level=clamp_level(player.rod_level) if player else TOOL_MIN_LEVEL,
+            weapon_level=(
+                clamp_level(player.weapon_level) if player else TOOL_MIN_LEVEL
+            ),
         )
 
     def currency_emoji(self, key: str) -> str:

@@ -30,6 +30,9 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
         "active_dragon_id": "INTEGER",
         "obsidian": "INTEGER NOT NULL DEFAULT 0",
         "aether": "INTEGER NOT NULL DEFAULT 0",
+        # V6 tools: existing players start at level 1, like new ones.
+        "rod_level": "INTEGER NOT NULL DEFAULT 1",
+        "weapon_level": "INTEGER NOT NULL DEFAULT 1",
     },
     "chats": {
         "last_egg_spawn_time": "REAL",

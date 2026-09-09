@@ -46,6 +46,7 @@ from game.feeding import FeedingService
 from game.chests import ChestService
 from game.market import MarketService
 from game.storage import ColdStorageService
+from game.tools import ToolService
 from game.treasury import TreasuryService
 from game.upgrades import UpgradeService
 from handlers.battle import (
@@ -177,6 +178,10 @@ def _setup_shared_objects(application: Application) -> None:
         chests=application.bot_data["chest_repo"],
         players=application.bot_data["player_repo"],
         storage=application.bot_data["storage_service"],
+    )
+    # Tool progression (🎣 rod / 🏹 weapon levels) lives on the player row.
+    application.bot_data["tool_service"] = ToolService(
+        players=application.bot_data["player_repo"]
     )
     # Treasury is a read-only view over the systems above (no new storage).
     application.bot_data["treasury_service"] = TreasuryService(
