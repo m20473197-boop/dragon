@@ -17,6 +17,7 @@ from config import (
     DRAGON_DEFAULT_MAX_HP,
     DRAGON_DEFAULT_POWER,
     DRAGON_DEFAULT_XP,
+    DEFAULT_RARITY,
     XP_PER_LEVEL_BASE,
 )
 from database.connection import db_scope
@@ -34,6 +35,7 @@ class Dragon:
     max_hp: int = DRAGON_DEFAULT_MAX_HP
     power: int = DRAGON_DEFAULT_POWER
     hunger: int = DRAGON_DEFAULT_HUNGER
+    rarity: str = DEFAULT_RARITY
     last_fed_time: Optional[float] = None
     is_test: int = 0
     from_egg_id: Optional[int] = None
@@ -52,6 +54,11 @@ class Dragon:
             max_hp=row["max_hp"],
             power=row["power"],
             hunger=row["hunger"],
+            # Older rows (pre-V8) have no rarity column: they are ⚪ معمولی.
+            rarity=(
+                row["rarity"] if "rarity" in row.keys() and row["rarity"]
+                else DEFAULT_RARITY
+            ),
             last_fed_time=row["last_fed_time"],
             is_test=row["is_test"] if "is_test" in row.keys() else 0,
             from_egg_id=row["from_egg_id"],
@@ -76,6 +83,7 @@ class DragonRepository:
         max_hp: int = DRAGON_DEFAULT_MAX_HP,
         power: int = DRAGON_DEFAULT_POWER,
         hunger: int = DRAGON_DEFAULT_HUNGER,
+        rarity: str = DEFAULT_RARITY,
         last_fed_time: Optional[float] = None,
         is_test: int = 0,
         conn=None,
@@ -90,11 +98,11 @@ class DragonRepository:
                 """
                 INSERT INTO dragons
                     (owner_id, name, dragon_type, level, xp, hp, max_hp, power,
-                     hunger, last_fed_time, is_test, from_egg_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     hunger, rarity, last_fed_time, is_test, from_egg_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (owner_id, name, dragon_type, level, xp, hp, max_hp, power,
-                 hunger, last_fed_time, is_test, from_egg_id),
+                 hunger, rarity, last_fed_time, is_test, from_egg_id),
             )
             dragon_id = cur.lastrowid
         return Dragon(
@@ -108,6 +116,7 @@ class DragonRepository:
             max_hp=max_hp,
             power=power,
             hunger=hunger,
+            rarity=rarity,
             last_fed_time=last_fed_time,
             is_test=is_test,
             from_egg_id=from_egg_id,

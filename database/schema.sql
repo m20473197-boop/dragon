@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS dragons (
     max_hp       INTEGER NOT NULL DEFAULT 100,
     power        INTEGER NOT NULL DEFAULT 20,        -- base attack power
     hunger       INTEGER NOT NULL DEFAULT 100,       -- fullness 0..100 (100 = full)
+    rarity       TEXT NOT NULL DEFAULT 'normal',      -- V8: key from config.RARITIES
     last_fed_time REAL,                              -- unix timestamp of last feeding
     is_test      INTEGER NOT NULL DEFAULT 0,         -- 1 if created via the admin test tools
     from_egg_id  INTEGER,

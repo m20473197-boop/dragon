@@ -40,6 +40,7 @@ from telegram.ext import ContextTypes
 from config import FOODS, HUNGER_LOW_THRESHOLD, UPGRADES
 from game.upgrades import LEVEL_UPGRADE_KEY, level_upgrade_cost
 from game.dragons import current_hunger, dragon_type_display, effective_power
+from game.rarity import element_label, rarity_display, rarity_label
 from game.selection import clear_selected_dragon, set_selected_dragon
 from handlers.name_dragon import start_naming_for_dragon
 from utils.text import to_fa
@@ -76,10 +77,12 @@ def selection_keyboard(dragons, active_id: int | None = None) -> InlineKeyboardM
     for dragon in dragons:
         emoji, _ = dragon_type_display(dragon.dragon_type)
         mark = " ✅" if active_id is not None and dragon.id == active_id else ""
+        # The rarity dot makes a 🟣/🟡 dragon obvious in the list.
+        dot, _name = rarity_display(dragon.rarity)
         rows.append(
             [
                 InlineKeyboardButton(
-                    f"{emoji} {dragon.name}{mark}",
+                    f"{dot} {emoji} {dragon.name}{mark}",
                     callback_data=f"{PREFIX}{ACTION_VIEW}:{dragon.id}",
                 )
             ]
@@ -202,6 +205,9 @@ def profile_text(dragon, now: float | None = None, is_active: bool = False) -> s
     return "\n".join(
         [
             f"🐉 {dragon.name} {emoji}{star}",
+            "",
+            f"🔮 عنصر: {element_label(dragon.dragon_type)}",
+            f"✨ کمیابی: {rarity_label(dragon.rarity)}",
             "",
             f"⭐ Lv.{to_fa(dragon.level)}",
             f"✨ XP: {to_fa(dragon.xp)}/{to_fa(dragon.xp_required_for_next_level())}",

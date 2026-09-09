@@ -31,6 +31,7 @@ from models.egg import (
     STATUS_INCUBATING,
 )
 from models.player import PlayerRepository
+from game.rarity import roll_element, roll_rarity
 from utils.rng import weighted_choice
 
 
@@ -62,11 +63,25 @@ class EggService:
     # --- randomness --------------------------------------------------------
     @staticmethod
     def random_egg_type() -> str:
-        return weighted_choice({k: v["weight"] for k, v in EGG_TYPES.items()})
+        """Pick a wild egg type.
+
+        Eggs with weight 0 (🌌 تخم اژدهای نخستین) are special-reward only and
+        are excluded here, so they can never appear from a wild spawn.
+        """
+        pool = {
+            k: v["weight"] for k, v in EGG_TYPES.items() if v.get("weight", 0) > 0
+        }
+        return weighted_choice(pool)
 
     @staticmethod
     def random_dragon_type(egg_type: str) -> str:
-        return weighted_choice(EGG_TYPES[egg_type]["dragons"])
+        """The element hatching from this egg (fixed, or rolled from its pool)."""
+        return roll_element(egg_type)
+
+    @staticmethod
+    def random_rarity(egg_type: str) -> str:
+        """The rarity of the dragon hatching from this egg."""
+        return roll_rarity(egg_type)
 
     @staticmethod
     def hatch_seconds(egg_type: str) -> int:
@@ -163,15 +178,17 @@ class EggService:
                 continue
 
             dragon_type = self.random_dragon_type(egg.egg_type)
+            rarity = self.random_rarity(egg.egg_type)
             with get_db() as conn:
                 # Idempotent guard: only the first transition succeeds.
                 if not self.eggs.transition_to_hatched(egg.id, now, conn=conn):
                     continue
-                # Create the newborn dragon (level 1, default stats).
+                # Create the newborn dragon (level 1, rarity-scaled stats).
                 dragon = self.dragon_service.create_newborn(
                     owner_id=egg.owner_id,
                     dragon_type=dragon_type,
                     from_egg_id=egg.id,
+                    rarity=rarity,
                     conn=conn,
                 )
                 # Egg became a dragon: eggs counter down, dragons counter up.

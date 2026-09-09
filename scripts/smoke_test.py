@@ -20,7 +20,9 @@ _tmp_db = Path(tempfile.gettempdir()) / "dragon_smoke_test.db"
 _tmp_db.unlink(missing_ok=True)
 os.environ["DRAGON_DB_PATH"] = str(_tmp_db)
 
+import config  # noqa: E402
 from config import CLAIM_WINDOW_SECONDS as CLAIM_WINDOW  # noqa: E402
+from game.rarity import scaled_stats  # noqa: E402
 from database.connection import get_db  # noqa: E402
 from database.init_db import init_db  # noqa: E402
 from config import HUNT_PREY  # noqa: E402
@@ -129,15 +131,20 @@ def main() -> None:
     events = svc.process_hatchings(now=t0)
     assert len(events) == 2, f"expected 2 hatchings, got {len(events)}"
     for ev in events:
-        assert ev.dragon.dragon_type in {
-            "green", "fire", "ice", "golden", "shadow"
-        }, ev.dragon.dragon_type
+        # V8: the element pool is config-driven, so derive it rather than
+        # pinning a fixed set here.
+        assert ev.dragon.dragon_type in config.DRAGON_TYPES, ev.dragon.dragon_type
         assert ev.dragon.owner_id in {1001, 2002}
         # Dragon data system: full stats present with default values.
         assert ev.dragon.id is not None
         assert ev.dragon.name == "بدون نام", ev.dragon.name
         assert (ev.dragon.level, ev.dragon.xp) == (1, 0)
-        assert (ev.dragon.hp, ev.dragon.max_hp, ev.dragon.power) == (100, 100, 20)
+        # V8: starting HP/power are scaled by the rolled rarity, so the
+        # expectation comes from the same helper the game uses.
+        assert ev.dragon.rarity in config.RARITIES, ev.dragon.rarity
+        _hp, _pw = scaled_stats(ev.dragon.rarity)
+        assert (ev.dragon.hp, ev.dragon.max_hp, ev.dragon.power) == (_hp, _hp, _pw), (
+            ev.dragon.rarity, ev.dragon.hp, ev.dragon.max_hp, ev.dragon.power)
     print("✓ hatched dragons carry full default stats (name/level/xp/hp/power)")
     # Counters: eggs gone, dragons gained.
     assert players.get(1001).eggs == 0 and players.get(1001).dragons == 1

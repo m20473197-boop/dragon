@@ -346,43 +346,154 @@ SPAWN_ACTIVE_WINDOW_SECONDS: int = 2 * 24 * 3600  # only spawn in recently activ
 CLAIM_WINDOW_SECONDS: int = EGG_EXPIRE_TIME
 HATCH_SWEEP_INTERVAL_SECONDS: int = 30    # how often eggs are hatched/expired
 
+# --- Dragon rarity (Version 8) ----------------------------------------------
+# Every dragon has a rarity, rolled when its egg hatches. Rarity scales the
+# newborn's starting HP and power; it never changes afterwards, and it does
+# not touch the level/XP/upgrade systems.
+RARITY_NORMAL = "normal"
+RARITY_RARE = "rare"
+RARITY_EPIC = "epic"
+RARITY_LEGENDARY = "legendary"
+RARITY_MYTHICAL = "mythical"
+
+# Ordered from lowest to highest (used for sorting and for "best" comparisons).
+RARITIES: dict[str, dict] = {
+    RARITY_NORMAL:    {"name": "معمولی",   "emoji": "⚪", "multiplier": 1.00, "order": 0},
+    RARITY_RARE:      {"name": "کمیاب",    "emoji": "🟢", "multiplier": 1.10, "order": 1},
+    RARITY_EPIC:      {"name": "حماسی",    "emoji": "🔵", "multiplier": 1.25, "order": 2},
+    RARITY_LEGENDARY: {"name": "افسانه‌ای", "emoji": "🟣", "multiplier": 1.50, "order": 3},
+    RARITY_MYTHICAL:  {"name": "اسطوره‌ای", "emoji": "🟡", "multiplier": 2.00, "order": 4},
+}
+
+# Dragons that existed before V8 (and any dragon created without an explicit
+# rarity) are ⚪ معمولی, so old data keeps its exact current stats.
+DEFAULT_RARITY: str = RARITY_NORMAL
+
 # --- Egg types --------------------------------------------------------------
-# Each type: display name, emoji, spawn weight, incubation time and the pool
-# of dragons (with weights) that can hatch from it.
+# Each type: display name, emoji, spawn weight, incubation time, the element it
+# produces and its rarity chances.
+#
+#   "element"  -> a key from DRAGON_TYPES, or None to roll from "dragons".
+#   "dragons"  -> weighted pool, used only when "element" is None.
+#   "rarity"   -> weighted rarity chances (the numbers are percentages).
+#   "weight"   -> wild-spawn weight; 0 means the egg never spawns in the wild
+#                 and can only arrive from special rewards / future events.
+#
+# The three original keys (common / rare / legendary) are kept exactly as they
+# were so eggs already incubating in the database still hatch normally.
 EGG_TYPES: dict[str, dict] = {
     "common": {
         "name": "تخم اژدهای معمولی",
         "short": "تخم معمولی",
         "emoji": "🥚",
-        "weight": 70,
+        "weight": 55,
         "hatch_seconds": 15 * 60,
+        "element": None,
         "dragons": {"green": 60, "fire": 30, "ice": 10},
+        "rarity": {RARITY_NORMAL: 85, RARITY_RARE: 13, RARITY_EPIC: 2},
     },
     "rare": {
         "name": "تخم اژدهای کمیاب",
         "short": "تخم کمیاب",
         "emoji": "💎",
-        "weight": 25,
+        "weight": 20,
         "hatch_seconds": 45 * 60,
+        "element": None,
         "dragons": {"fire": 35, "ice": 35, "golden": 25, "shadow": 5},
+        "rarity": {RARITY_NORMAL: 70, RARITY_RARE: 22, RARITY_EPIC: 7,
+                   RARITY_LEGENDARY: 1},
     },
     "legendary": {
         "name": "تخم اژدهای افسانه‌ای",
         "short": "تخم افسانه‌ای",
         "emoji": "👑",
-        "weight": 5,
+        "weight": 4,
         "hatch_seconds": 2 * 60 * 60,
+        "element": None,
         "dragons": {"golden": 60, "shadow": 40},
+        "rarity": {RARITY_NORMAL: 50, RARITY_RARE: 28, RARITY_EPIC: 15,
+                   RARITY_LEGENDARY: 6, RARITY_MYTHICAL: 1},
+    },
+    # --- V8 egg types -------------------------------------------------------
+    "ancient": {
+        "name": "تخم کهن",
+        "short": "تخم کهن",
+        "emoji": "🥚",
+        "weight": 12,
+        "hatch_seconds": 20 * 60,
+        "element": None,                       # random element
+        "dragons": {"green": 30, "fire": 25, "ice": 25, "golden": 15,
+                    "lightning": 5},
+        "rarity": {RARITY_NORMAL: 75, RARITY_RARE: 20, RARITY_EPIC: 5},
+    },
+    "eternal_flame": {
+        "name": "تخم شعله جاودان",
+        "short": "تخم شعله",
+        "emoji": "🔥",
+        "weight": 5,
+        "hatch_seconds": 60 * 60,
+        "element": "fire",
+        "rarity": {RARITY_NORMAL: 60, RARITY_RARE: 25, RARITY_EPIC: 12,
+                   RARITY_LEGENDARY: 3},
+    },
+    "ice_crystal": {
+        "name": "تخم کریستال یخی",
+        "short": "تخم یخی",
+        "emoji": "❄️",
+        "weight": 5,
+        "hatch_seconds": 60 * 60,
+        "element": "ice",
+        "rarity": {RARITY_NORMAL: 60, RARITY_RARE: 25, RARITY_EPIC: 12,
+                   RARITY_LEGENDARY: 3},
+    },
+    "sky_storm": {
+        "name": "تخم طوفان آسمانی",
+        "short": "تخم طوفان",
+        "emoji": "⚡",
+        "weight": 4,
+        "hatch_seconds": 75 * 60,
+        "element": "lightning",
+        "rarity": {RARITY_NORMAL: 55, RARITY_RARE: 27, RARITY_EPIC: 14,
+                   RARITY_LEGENDARY: 4},
+    },
+    "ancient_shadow": {
+        "name": "تخم سایه باستانی",
+        "short": "تخم سایه",
+        "emoji": "🌑",
+        "weight": 3,
+        "hatch_seconds": 90 * 60,
+        "element": "shadow",
+        # "Higher rarity chance" — the best odds of the obtainable eggs.
+        "rarity": {RARITY_NORMAL: 40, RARITY_RARE: 30, RARITY_EPIC: 20,
+                   RARITY_LEGENDARY: 8, RARITY_MYTHICAL: 2},
+    },
+    "primordial": {
+        "name": "تخم اژدهای نخستین",
+        "short": "تخم نخستین",
+        "emoji": "🌌",
+        # Never spawns in the wild: special rewards / future events / rare
+        # drops only. Weight 0 keeps it out of the wild spawn table.
+        "weight": 0,
+        "hatch_seconds": 3 * 60 * 60,
+        "element": "primordial",
+        "rarity": {RARITY_EPIC: 45, RARITY_LEGENDARY: 40, RARITY_MYTHICAL: 15},
     },
 }
 
+# Egg types that can never spawn in the wild (weight 0). Kept as an explicit
+# set so the intent is obvious to future readers.
+SPECIAL_EGG_TYPES: tuple[str, ...] = ("primordial",)
+
 # --- Dragon types -----------------------------------------------------------
 DRAGON_TYPES: dict[str, dict] = {
-    "green":  {"name": "اژدهای سبز",   "emoji": "🐲"},
-    "fire":   {"name": "اژدهای آتشین", "emoji": "🔥"},
-    "ice":    {"name": "اژدهای یخی",   "emoji": "❄️"},
-    "golden": {"name": "اژدهای طلایی", "emoji": "✨"},
-    "shadow": {"name": "اژدهای سایه",  "emoji": "🌑"},
+    "green":  {"name": "اژدهای سبز",   "emoji": "🐲", "element": "طبیعت"},
+    "fire":   {"name": "اژدهای آتشین", "emoji": "🔥", "element": "آتش"},
+    "ice":    {"name": "اژدهای یخی",   "emoji": "❄️", "element": "یخ"},
+    "golden": {"name": "اژدهای طلایی", "emoji": "✨", "element": "نور"},
+    "shadow": {"name": "اژدهای سایه",  "emoji": "🌑", "element": "سایه"},
+    # V8 elements.
+    "lightning":  {"name": "اژدهای صاعقه",  "emoji": "⚡", "element": "صاعقه"},
+    "primordial": {"name": "اژدهای نخستین", "emoji": "🌌", "element": "نخستین"},
 }
 
 

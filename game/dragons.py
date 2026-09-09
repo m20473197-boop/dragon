@@ -21,11 +21,8 @@ from typing import Optional
 
 from config import (
     DEFAULT_DRAGON_NAME,
-    DRAGON_DEFAULT_HP,
     DRAGON_DEFAULT_HUNGER,
     DRAGON_DEFAULT_LEVEL,
-    DRAGON_DEFAULT_MAX_HP,
-    DRAGON_DEFAULT_POWER,
     DRAGON_DEFAULT_XP,
     DRAGON_TYPES,
     HUNGER_DECAY_PER_HOUR,
@@ -123,15 +120,25 @@ class DragonService:
         owner_id: int,
         dragon_type: str,
         from_egg_id: Optional[int] = None,
+        rarity: Optional[str] = None,
         now: Optional[float] = None,
         conn=None,
     ) -> Dragon:
-        """Create a level-1 dragon with default stats for its owner."""
+        """Create a level-1 dragon for its owner.
+
+        ``rarity`` scales the starting HP and power (V8). Omitting it yields a
+        ⚪ معمولی dragon with exactly the historical default stats, so every
+        existing caller keeps its old behaviour.
+        """
         import time
+
+        from game.rarity import normalise_rarity, scaled_stats
 
         if dragon_type not in DRAGON_TYPES:
             raise ValueError(f"Unknown dragon type: {dragon_type!r}")
         now = now if now is not None else time.time()
+        rarity = normalise_rarity(rarity)
+        max_hp, power = scaled_stats(rarity)
         return self.dragons.create(
             owner_id=owner_id,
             dragon_type=dragon_type,
@@ -139,10 +146,11 @@ class DragonService:
             name=DEFAULT_DRAGON_NAME,
             level=DRAGON_DEFAULT_LEVEL,
             xp=DRAGON_DEFAULT_XP,
-            hp=DRAGON_DEFAULT_HP,
-            max_hp=DRAGON_DEFAULT_MAX_HP,
-            power=DRAGON_DEFAULT_POWER,
+            hp=max_hp,               # newborns start at full health
+            max_hp=max_hp,
+            power=power,
             hunger=DRAGON_DEFAULT_HUNGER,
+            rarity=rarity,
             last_fed_time=now,
             conn=conn,
         )

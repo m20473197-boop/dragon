@@ -11,6 +11,7 @@ import logging
 
 from config import (
     DEFAULT_DRAGON_NAME,
+    DEFAULT_RARITY,
     DRAGON_DEFAULT_HP,
     DRAGON_DEFAULT_HUNGER,
     DRAGON_DEFAULT_LEVEL,
@@ -61,6 +62,9 @@ _EXPECTED_COLUMNS: dict[str, dict[str, str]] = {
         "power": f"INTEGER NOT NULL DEFAULT {DRAGON_DEFAULT_POWER}",
         "hunger": f"INTEGER NOT NULL DEFAULT {DRAGON_DEFAULT_HUNGER}",
         "last_fed_time": "REAL",
+        # V8 rarity: every dragon that already exists is ⚪ معمولی, so their
+        # current stats stay exactly as they are.
+        "rarity": f"TEXT NOT NULL DEFAULT '{DEFAULT_RARITY}'",
     },
 }
 

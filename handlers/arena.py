@@ -22,6 +22,7 @@ from game.arena import (
     RankEntry,
     summarise_turns,
 )
+from game.rarity import element_label, rarity_label
 from utils.text import to_fa
 
 logger = logging.getLogger(__name__)
@@ -177,6 +178,8 @@ def my_dragon_text(stats: dict) -> str:
     league = stats["league"]
     lines = [
         f"🐉 {dragon.name}",
+        f"🔮 عنصر: {element_label(dragon.dragon_type)}",
+        f"✨ کمیابی: {rarity_label(dragon.rarity)}",
         f"⭐ Lv.{to_fa(dragon.level)}",
         f"❤️ HP: {to_fa(dragon.max_hp)}",
         f"⚔️ Power: {to_fa(dragon.power)}",

@@ -129,15 +129,18 @@ reset deletes only those rows and corrects counters. Action statistics use
 
 ### Dragon data system
 
-When an egg hatches, a new dragon row is created for the owner with a random
-type (from the egg's rarity pool) and default stats:
+When an egg hatches, a new dragon row is created for the owner. Its **element**
+and **rarity** are rolled from the egg's own tables (see
+[Egg rarity & dragon origin](#-egg-rarity--dragon-origin-version-8)):
 
 - **name:** `بدون نام` (unnamed — ready for a future rename feature)
-- **type:** random dragon type (e.g. 🔥 اژدهای آتشین)
-- **level:** 1 · **xp:** 0 · **hp / max_hp:** 100 / 100 · **power:** 20
+- **element:** fixed by the egg, or random (e.g. 🔥 اژدهای آتشین)
+- **rarity:** ⚪ / 🟢 / 🔵 / 🟣 / 🟡, which scales the starting stats
+- **level:** 1 · **xp:** 0 · **hp / max_hp / power:** base 100 / 100 / 20,
+  multiplied by the rarity (a 🔵 حماسی newborn starts at 125 / 125 / 25)
 
 The `dragons` table stores `id, owner_id, name, type, level, xp, hp, max_hp,
-power` (plus `from_egg_id`, `born_at`). On startup `database/migrate.py`
+power, rarity` (plus `from_egg_id`, `born_at`). On startup `database/migrate.py`
 adds any missing columns to older databases, so existing installs upgrade in
 place. Dragon creation/reading lives in `game/dragons.py` (`DragonService`);
 PvP lives in `game/arena.py`.
@@ -166,13 +169,20 @@ their Telegram user ID is the primary key.
 
 ## Egg & dragon types
 
-| Egg type            | Weight | Incubation | Can hatch into                     |
-|---------------------|-------:|-----------:|------------------------------------|
-| 🥚 معمولی (common)   | 70%    | 15 min     | 🐲 سبز / 🔥 آتشین / ❄️ یخی          |
-| 💎 کمیاب (rare)      | 25%    | 45 min     | 🔥 آتشین / ❄️ یخی / ✨ طلایی / 🌑 سایه |
-| 👑 افسانه‌ای (legendary) | 5% | 2 hours   | ✨ طلایی / 🌑 سایه                  |
+| Egg type | Spawn | Incubation | Element | Rarity chances |
+|----------|------:|-----------:|---------|----------------|
+| 🥚 تخم اژدهای معمولی | 55 | 15 min | 🎲 random | ⚪85 🟢13 🔵2 |
+| 💎 تخم اژدهای کمیاب | 20 | 45 min | 🎲 random | ⚪70 🟢22 🔵7 🟣1 |
+| 👑 تخم اژدهای افسانه‌ای | 4 | 2 h | 🎲 random | ⚪50 🟢28 🔵15 🟣6 🟡1 |
+| 🥚 تخم کهن | 12 | 20 min | 🎲 random | ⚪75 🟢20 🔵5 |
+| 🔥 تخم شعله جاودان | 5 | 1 h | 🔥 آتش | ⚪60 🟢25 🔵12 🟣3 |
+| ❄️ تخم کریستال یخی | 5 | 1 h | ❄️ یخ | ⚪60 🟢25 🔵12 🟣3 |
+| ⚡ تخم طوفان آسمانی | 4 | 75 min | ⚡ صاعقه | ⚪55 🟢27 🔵14 🟣4 |
+| 🌑 تخم سایه باستانی | 3 | 90 min | 🌑 سایه | ⚪40 🟢30 🔵20 🟣8 🟡2 |
+| 🌌 تخم اژدهای نخستین | **never** | 3 h | 🌌 نخستین | 🔵45 🟣40 🟡15 |
 
-All numbers, weights, timings and names live in `config.py`.
+Dragon elements: 🐲 طبیعت · 🔥 آتش · ❄️ یخ · ✨ نور · 🌑 سایه · ⚡ صاعقه ·
+🌌 نخستین. All numbers, weights, timings and names live in `config.py`.
 
 ## ⚠️ Important: enable group messages in BotFather
 
@@ -233,6 +243,7 @@ dragon_bot/
 ├── game/                   # Rules only — no Telegram imports
 │   ├── actions.py          # hunt(), fish() (atomic reward + cooldown)
 │   ├── arena.py            # ArenaService: matchmaking, duel simulation, leagues
+│   ├── rarity.py           # Egg rarity/element rolling + stat scaling (V8)
 │   └── eggs.py             # EggService: spawn, claim, found eggs, hatch, expire
 ├── handlers/               # Telegram only
 │   ├── __init__.py         # Router + register_all() (handlers, error handler, jobs)
@@ -251,6 +262,7 @@ dragon_bot/
 └── scripts/
     ├── smoke_test.py       # Tests DB + game logic (full egg lifecycle)
     ├── test_arena.py       # Arena PvP: matchmaking, balance, limits, migration
+    ├── test_rarity.py      # Egg rarity/origin: chances, scaling, compatibility
     └── test_atomicity.py   # Concurrency tests: no duplicate rewards/dragons
 ```
 
@@ -302,7 +314,7 @@ python3 scripts/test_atomicity.py    # concurrency: no duplicate rewards/dragons
 for s in scripts/test_*.py scripts/smoke_test.py; do python3 "$s" || break; done
 ```
 
-There are 22 suites; `test_admin.py` needs `DRAGON_ADMIN_IDS=1 DRAGON_DEBUG=true`.
+There are 23 suites; `test_admin.py` needs `DRAGON_ADMIN_IDS=1 DRAGON_DEBUG=true`.
 Runs against a throwaway DB. The smoke test covers player creation,
 hunting/fishing, cooldowns, chat tracking, spawning, claiming, found eggs,
 hatching and expiry; the atomicity test runs **concurrent** hunts and claims in
@@ -538,6 +550,85 @@ Telegram is slow or unreachable:
 - Every failed announcement is logged with the chat id and what was being sent.
 
 Covered by `scripts/test_send_resilience.py`.
+
+## ✨ Egg rarity & dragon origin (Version 8)
+
+Eggs no longer produce identical dragons. When an egg hatches, two things are
+rolled from the **egg's own tables**: the dragon's **element** and its
+**rarity**. Rarity then scales the newborn's starting stats.
+
+### Rarity ladder
+
+| Rarity | Stats | Newborn HP / Power |
+| --- | --- | --- |
+| ⚪ معمولی | base | 100 / 20 |
+| 🟢 کمیاب | +10 % | 110 / 22 |
+| 🔵 حماسی | +25 % | 125 / 25 |
+| 🟣 افسانه‌ای | +50 % | 150 / 30 |
+| 🟡 اسطوره‌ای | +100 % | 200 / 40 |
+
+Rarity is rolled **once**, stored in `dragons.rarity`, and never changes.
+It only scales the *starting* stats — levelling, feeding, upgrades and the
+arena all keep working on the resulting numbers exactly as before.
+
+### Origin: element
+
+Each egg either fixes its element (a 🔥 تخم شعله جاودان always yields a fire
+dragon) or rolls one from its weighted pool (🥚 تخم کهن). Two new elements were
+added for the new eggs: ⚡ صاعقه and 🌌 نخستین. See the
+[egg table](#egg--dragon-types) for every type's element and chances.
+
+🌌 **تخم اژدهای نخستین** has spawn weight 0, so it can *never* appear from a
+wild spawn — it is reserved for special rewards, future events and rare drops.
+`EggService.random_egg_type()` filters weight-0 eggs out of the spawn table
+(covered by a 20 000-roll test).
+
+### What the player sees
+
+Hatching:
+
+```
+🎉 تخم باز شد!
+
+🔥 تخم شعله جاودان ➜ 🔥 اژدهای آتشین
+
+✨ کمیابی: 🔵 حماسی
+❤️ HP: ۱۲۵   ⚔️ قدرت: ۲۵
+👤 @Ali
+```
+
+The dragon page and the arena profile both gained an element and a rarity line:
+
+```
+🐉 آذر 🔥 ⭐
+
+🔮 عنصر: 🔥 آتش
+✨ کمیابی: 🔵 حماسی
+
+⭐ Lv.۱
+✨ XP: ۰/۱۰۰
+
+❤️ HP: ۱۲۵/۱۲۵
+⚔️ قدرت: ۲۵
+🍖 گرسنگی: ۱۰۰٪
+```
+
+The dragon list prefixes each button with its rarity dot, so a 🟡 اسطوره‌ای
+dragon is obvious at a glance: `[🟡 🌌 نخستین]`.
+
+### Compatibility
+
+`dragons.rarity` is added by `database/migrate.py` with
+`DEFAULT 'normal'`, so **every existing dragon becomes ⚪ معمولی and keeps its
+exact current level, XP, HP, power and hunger**. Eggs already incubating still
+hatch: the three original egg keys (`common` / `rare` / `legendary`) were kept
+untouched and simply gained a rarity table. Any blank or unknown rarity value
+degrades to ⚪ معمولی rather than breaking a screen. Verified against a real
+simulated V7 database.
+
+Code: `game/rarity.py` (rules), `game/eggs.py` (rolling at hatch),
+`game/dragons.py` (`create_newborn`), `models/dragon.py` (persistence).
+Tests: `scripts/test_rarity.py` (160 checks).
 
 ## 🏟️ Arena PvP (Version 7)
 

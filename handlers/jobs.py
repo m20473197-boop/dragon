@@ -29,6 +29,8 @@ from config import (
 )
 from game import spawn_settings
 from game.eggs import dragon_display, egg_display
+from game.rarity import rarity_label
+from utils.text import to_fa
 from handlers.chests import CHEST_TEXT, build_chest_keyboard, safe_send_message
 from handlers.cleanup import delete_message
 from handlers.spawn import SPAWN_TEXT, build_spawn_keyboard
@@ -108,9 +110,12 @@ async def _announce_hatching(context: ContextTypes.DEFAULT_TYPE, event) -> None:
     else:
         owner_link = f"<a href='tg://user?id={event.owner_id}'>کاربر</a>"
 
+    dragon = event.dragon
     text = (
-        "🐣 تخم باز شد!\n\n"
-        f"{egg_emoji} {egg_name} ➜ {emoji} <b>{dragon_name}</b>\n"
+        "🎉 تخم باز شد!\n\n"
+        f"{egg_emoji} {egg_name} ➜ {emoji} <b>{dragon_name}</b>\n\n"
+        f"✨ کمیابی: {rarity_label(dragon.rarity)}\n"
+        f"❤️ HP: {to_fa(dragon.max_hp)}   ⚔️ قدرت: {to_fa(dragon.power)}\n"
         f"👤 {owner_link}"
     )
     sent = await safe_send_message(
