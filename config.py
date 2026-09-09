@@ -128,6 +128,33 @@ FULL_FEED_MAX_UNITS: int = 50
 # Each upgrade: display text, what it improves, and its price in obsidian.
 # Prices and bonuses are configurable; add new entries to extend the system.
 # Food is never used for upgrading.
+# --- Progressive upgrade pricing --------------------------------------------
+# Levelling a dragon gets steadily more expensive, so late levels are a real
+# goal instead of a repeat of the first one. The cost depends on the dragon's
+# CURRENT level: a dragon at level N pays UPGRADE_COST_TABLE[N] to reach N+1.
+#
+# Levels 1..9 are hand-tuned (the curve designers signed off on); from level 10
+# up the cost is extrapolated with UPGRADE_COST_FORMULA below. The two agree at
+# level 10 (both 40000), so the curve has no jump where it switches over.
+UPGRADE_COST_TABLE: dict[int, int] = {
+    1: 1000,    # 1 → 2
+    2: 2000,    # 2 → 3
+    3: 3500,    # 3 → 4
+    4: 5500,    # 4 → 5
+    5: 8000,    # 5 → 6
+    6: 12000,   # 6 → 7
+    7: 18000,   # 7 → 8
+    8: 27000,   # 8 → 9
+    9: 40000,   # 9 → 10
+}
+
+# For level >= UPGRADE_COST_FORMULA_FROM:
+#     cost = round(UPGRADE_COST_BASE * (level / UPGRADE_COST_DIVISOR) ** UPGRADE_COST_EXPONENT)
+UPGRADE_COST_FORMULA_FROM: int = 10
+UPGRADE_COST_BASE: int = 40000
+UPGRADE_COST_DIVISOR: int = 10
+UPGRADE_COST_EXPONENT: float = 1.8
+
 UPGRADES: dict[str, dict] = {
     "hp": {
         "name": "افزایش سلامت",

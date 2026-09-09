@@ -38,6 +38,7 @@ from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
 from config import FOODS, HUNGER_LOW_THRESHOLD, UPGRADES
+from game.upgrades import LEVEL_UPGRADE_KEY, level_upgrade_cost
 from game.dragons import current_hunger, dragon_type_display, effective_power
 from game.selection import clear_selected_dragon, set_selected_dragon
 from handlers.name_dragon import start_naming_for_dragon
@@ -140,12 +141,24 @@ def feed_keyboard(dragon_id: int) -> InlineKeyboardMarkup:
     )
 
 
-def upgrade_keyboard(dragon_id: int) -> InlineKeyboardMarkup:
-    """One button per configured upgrade, plus back to the profile."""
+def _upgrade_price(key: str, spec: dict, dragon_level: int | None) -> int:
+    """Price of one upgrade, level-aware for the ⭐ level upgrade."""
+    if key == LEVEL_UPGRADE_KEY and dragon_level is not None:
+        return level_upgrade_cost(dragon_level)
+    return int(spec["cost_obsidian"])
+
+
+def upgrade_keyboard(dragon_id: int, dragon_level: int | None = None) -> InlineKeyboardMarkup:
+    """One button per configured upgrade, plus back to the profile.
+
+    The ⭐ level button shows the progressive price for THIS dragon's current
+    level, so the button never advertises a stale cost.
+    """
     rows = [
         [
             InlineKeyboardButton(
-                f"{spec['emoji']} {spec['short']} 🪨 {to_fa(spec['cost_obsidian'])}",
+                f"{spec['emoji']} {spec['short']} 🪨 "
+                f"{to_fa(_upgrade_price(key, spec, dragon_level))}",
                 callback_data=f"{PREFIX}{ACTION_UPGRADE_DO}:{dragon_id}:{key}",
             )
         ]
@@ -214,24 +227,35 @@ def feed_menu_text(dragon, meat: int, fish: int, now: float | None = None) -> st
 
 
 def upgrade_menu_text(dragon, obsidian: int) -> str:
-    """Compact upgrade card; every price is in 🪨 obsidian.
+    """Upgrade card for one dragon; every price is in 🪨 obsidian.
+
+    The ⭐ level price is progressive, so the card always shows what THIS
+    dragon's next level actually costs.
 
     Example::
 
-        ⬆️ ارتقا آذر
+        ⬆️ ارتقای اژدها
 
-        ❤️ HP +۲۰
-        ⚔️ قدرت +۵
-        ⭐ سطح +۱
+        🐉 آذر
+        ⭐ Level: ۵
 
-        🪨 ۵۰۰ / ۷۰۰ / ۱۰۰۰
-        💰 ۱۲۰۰
+        ❤️ HP +۲۰ — 🪨 ۵۰۰
+        ⚔️ قدرت +۵ — 🪨 ۷۰۰
+        ⭐ سطح +۱ — 🪨 ۸۰۰۰
+
+        💰 ۱۲۰۰ 🪨
     """
-    lines = [f"⬆️ ارتقا {dragon.name}", ""]
-    for spec in UPGRADES.values():
+    lines = [
+        "⬆️ ارتقای اژدها",
+        "",
+        f"🐉 {dragon.name}",
+        f"⭐ Level: {to_fa(dragon.level)}",
+        "",
+    ]
+    for key, spec in UPGRADES.items():
         lines.append(
             f"{spec['emoji']} {spec['short']} +{to_fa(spec['amount'])} — "
-            f"🪨 {to_fa(spec['cost_obsidian'])}"
+            f"🪨 {to_fa(_upgrade_price(key, spec, dragon.level))}"
         )
     lines += ["", f"💰 {to_fa(obsidian)} 🪨"]
     return "\n".join(lines)
@@ -439,7 +463,9 @@ async def _show_upgrades(query, context, dragon, user_id: int) -> None:
     balance = context.bot_data["upgrade_service"].balance(user_id)
     await _answer(query)
     await _edit(
-        query, upgrade_menu_text(dragon, balance), upgrade_keyboard(dragon.id)
+        query,
+        upgrade_menu_text(dragon, balance),
+        upgrade_keyboard(dragon.id, dragon.level),
     )
 
 
@@ -451,12 +477,28 @@ async def _apply_upgrade(query, context, dragon, user_id: int, key: str) -> None
     result = context.bot_data["upgrade_service"].apply(user_id, dragon.id, key)
     if not result.success:
         if result.reason == "not_enough":
+            # Short alert, plus the requirement written into the card so the
+            # player can see exactly what the upgrade needs.
             await _answer(
                 query,
                 f"🪨 کم داری! {to_fa(result.missing)} تای دیگه لازمه.",
                 alert=True,
             )
-        elif result.reason == "unknown":
+            price = _upgrade_price(key, UPGRADES[key], dragon.level)
+            await _edit(
+                query,
+                "\n".join([
+                    "❌ ابسیدین کافی نداری!",
+                    "",
+                    "نیاز:",
+                    f"🪨 {to_fa(price)}",
+                    "",
+                    f"💰 {to_fa(result.balance)} 🪨",
+                ]),
+                upgrade_keyboard(dragon.id, dragon.level),
+            )
+            return
+        if result.reason == "unknown":
             await _answer(query, "🚧 در دسترس نیست.", alert=True)
         else:
             await _answer(query, "⛔ مال تو نیست!", alert=True)
@@ -471,14 +513,28 @@ async def _apply_upgrade(query, context, dragon, user_id: int, key: str) -> None
         for stat, v in result.gains.items()
     )
     active_id = context.bot_data["player_repo"].get_active_dragon_id(user_id)
-    lines = [
-        "✅ ارتقا شد!",
-        "",
-        gains,
-        f"🪨 -{to_fa(result.spent)}   💰 {to_fa(result.balance)}",
-        "",
-        profile_text(result.dragon, is_active=(active_id == result.dragon.id)),
-    ]
+    if key == LEVEL_UPGRADE_KEY:
+        # A level-up shows the level transition and what the next one costs.
+        lines = [
+            "⬆️ ارتقا موفق!",
+            "",
+            "⭐ Level:",
+            f"{to_fa(result.previous_level)} ➜ {to_fa(result.dragon.level)}",
+            "",
+            gains,
+            f"🪨 -{to_fa(result.spent)}   💰 {to_fa(result.balance)}",
+            "",
+            f"⬆️ ارتقای بعدی: 🪨 {to_fa(result.next_cost)}",
+        ]
+    else:
+        lines = [
+            "✅ ارتقا شد!",
+            "",
+            gains,
+            f"🪨 -{to_fa(result.spent)}   💰 {to_fa(result.balance)}",
+            "",
+            profile_text(result.dragon, is_active=(active_id == result.dragon.id)),
+        ]
     await _answer(query)
     await _edit(query, "\n".join(lines), profile_keyboard(result.dragon.id))
 

@@ -848,3 +848,46 @@ leaves all player data byte-identical.
 
 Callback namespace is `tr:` (no collision with `dg:`, `mk:`, `bt:`, `admin:`,
 `open_chest:`, `claim_egg:`). Covered by `scripts/test_treasury.py` (51 checks).
+
+## 📈 Progressive upgrade costs
+
+The ⭐ level upgrade is no longer a flat price: it scales with the dragon's
+**current** level, so late levels are a real goal instead of a repeat of the
+first one.
+
+| Level | Cost | Level | Cost |
+| --- | --- | --- | --- |
+| 1 → 2 | 🪨 1 000 | 6 → 7 | 🪨 12 000 |
+| 2 → 3 | 🪨 2 000 | 7 → 8 | 🪨 18 000 |
+| 3 → 4 | 🪨 3 500 | 8 → 9 | 🪨 27 000 |
+| 4 → 5 | 🪨 5 500 | 9 → 10 | 🪨 40 000 |
+| 5 → 6 | 🪨 8 000 | | |
+
+From level 10 upward the cost is extrapolated:
+
+```
+upgrade_cost = round(40000 * (current_level / 10) ** 1.8)
+```
+
+Levels 1–9 come from the hand-tuned `config.UPGRADE_COST_TABLE`; the formula
+takes over at `UPGRADE_COST_FORMULA_FROM` (10). Both give 40 000 at level 10,
+so the curve never drops — levels 9 and 10 share a price, which is the single
+intentional plateau where the table hands over to the formula.
+
+`game.upgrades.level_upgrade_cost(level)` is the one source of truth, used by
+the service, the upgrade card and the buttons alike, so a price can never be
+advertised in the UI that differs from what is charged. The price is resolved
+from the dragon row **inside the same transaction as the guarded spend**, so a
+double tap can never be charged at a stale (cheaper) level.
+
+❤️ HP and ⚔️ power keep their flat `cost_obsidian` prices. The XP system,
+per-level stat bonuses and the database schema are unchanged.
+
+```
+⬆️ ارتقای اژدها          ⬆️ ارتقا موفق!         ❌ ابسیدین کافی نداری!
+
+🐉 آذر                   ⭐ Level:              نیاز:
+⭐ Level: ۵              ۵ ➜ ۶                  🪨 ۱۲۰۰۰
+```
+
+Covered by `scripts/test_upgrade_costs.py` (67 checks).

@@ -32,7 +32,7 @@ from database.init_db import init_db  # noqa: E402
 from database.migrate import run_migrations  # noqa: E402
 from game.dragons import DragonService  # noqa: E402
 from game.storage import ColdStorageService  # noqa: E402
-from game.upgrades import UpgradeService  # noqa: E402
+from game.upgrades import UpgradeService, level_upgrade_cost  # noqa: E402
 from handlers.dragon_manage import (  # noqa: E402
     ACTION_UPGRADE,
     PREFIX,
@@ -73,7 +73,7 @@ def main() -> None:
         assert isinstance(spec["cost_obsidian"], int) and spec["cost_obsidian"] > 0
     assert UPGRADES["hp"]["cost_obsidian"] == 500
     assert UPGRADES["power"]["cost_obsidian"] == 700
-    assert UPGRADES["level"]["cost_obsidian"] > 0        # configurable
+    assert UPGRADES["level"]["cost_obsidian"] > 0        # fallback, now progressive
     print("✓ upgrades priced in obsidian only (HP 500 / power 700 / level configurable)")
 
     # 2. The upgrade button lives on the dragon profile page.
@@ -129,12 +129,14 @@ def main() -> None:
     # 6. Level upgrade: +1 level with the usual per-level bonuses.
     obs_before = players.get(OWNER).obsidian
     lvl_before = dragons.get(a.id)
+    # The level upgrade is priced progressively from the dragon's CURRENT level.
+    expected_cost = level_upgrade_cost(lvl_before.level)
     res = upgrades.apply(OWNER, a.id, "level")
-    assert res.success and res.spent == UPGRADES["level"]["cost_obsidian"]
+    assert res.success and res.spent == expected_cost, (res.spent, expected_cost)
     assert res.dragon.level == lvl_before.level + 1
     assert res.dragon.max_hp == lvl_before.max_hp + LEVEL_UP_MAX_HP_BONUS
     assert res.dragon.power == lvl_before.power + LEVEL_UP_POWER_BONUS
-    assert players.get(OWNER).obsidian == obs_before - UPGRADES["level"]["cost_obsidian"]
+    assert players.get(OWNER).obsidian == obs_before - expected_cost
     print("✓ ⭐ level upgrade: -🪨 configurable, +۱ level")
 
     # 7. Only the selected dragon changed; the other one is untouched.
