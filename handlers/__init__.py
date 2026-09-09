@@ -71,6 +71,7 @@ from handlers.hunt import hunt_command
 from handlers.chests import CHEST_PREFIX, open_chest_callback
 from handlers.cleanup import cleanup_tick
 from handlers.jobs import breeding_sweep, chest_tick, hatch_sweep, spawn_tick
+from handlers.keyboards import resolve_menu_button
 from handlers.market import (
     PREFIX as MARKET_PREFIX,
     market_callback,
@@ -145,6 +146,14 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # If this message is a known game command, it runs normally and cancels any
     # open naming prompt (handled inside the capture). Otherwise, if the user is
     # mid "نام اژدها" flow, the message is treated as the dragon name.
+    # A tap on the main reply keyboard sends a captioned label such as
+    # «🥚 تخم‌ها»; map it back to the plain command word it stands for. Typed
+    # commands are checked first, so nothing about them changes.
+    if text not in COMMAND_MAP:
+        alias = resolve_menu_button(text)
+        if alias is not None:
+            text = alias
+
     if text in COMMAND_MAP:
         # A real game command runs normally and abandons any open naming
         # prompt, so the command's flow is not treated as a dragon name.

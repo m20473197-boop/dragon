@@ -169,6 +169,16 @@ Also: `/start` and `/help` show the welcome message.
 Players are registered automatically the first time they tap or type a command —
 their Telegram user ID is the primary key.
 
+## 🐉 Dragon List
+
+1. اژدهای سبز
+2. اژدهای آتشین
+3. اژدهای یخی
+4. اژدهای طلایی
+5. اژدهای سایه
+6. اژدهای صاعقه
+7. اژدهای نخستین
+
 ## Egg & dragon types
 
 | Egg type | Spawn | Incubation | Element | Rarity chances |
@@ -185,6 +195,27 @@ their Telegram user ID is the primary key.
 
 Dragon elements: 🐲 طبیعت · 🔥 آتش · ❄️ یخ · ✨ نور · 🌑 سایه · ⚡ صاعقه ·
 🌌 نخستین. All numbers, weights, timings and names live in `config.py`.
+
+## ⌨️ Main menu keyboard
+
+A persistent reply keyboard gives one-tap access to the most used screens:
+
+```
+[🥚 تخم‌ها]   [🐉 اژدها]
+[❄️ سردخانه]  [🏪 بازار]
+[🧬 پیوند]
+```
+
+It appears with `/start` and `/help`. This is **purely an accessibility
+layer** — each button simply sends the same Persian word the player could type
+by hand, so it routes to the existing handler with no duplicated logic.
+`utils.text.normalize_command` already folds the Persian semi-space (U+200C)
+into a space, and `handlers/keyboards.py` maps the emoji caption
+(«🥚 تخم‌ها») back to its command word («تخم ها»).
+
+Every Persian command still works when typed, including 🏰 `خزانه`, which is
+deliberately **not** on the menu. `/help` and `/arena` are unchanged.
+Tests: `scripts/test_keyboard.py` (45 checks).
 
 ## ⚠️ Important: enable group messages in BotFather
 
@@ -260,6 +291,7 @@ dragon_bot/
 │   ├── fishing.py          # ماهیگیری
 │   ├── arena.py            # /arena (PvP menu, battle, ranking)
 │   ├── breeding.py         # /breeding + «پیوند» (🧬 ritual menu)
+│   ├── keyboards.py        # Main reply keyboard (UI shortcut only)
 │   └── eggs.py             # تخم ها
 ├── utils/
 │   ├── text.py             # Persian digits, cooldown text, command normalization
@@ -269,6 +301,7 @@ dragon_bot/
     ├── test_arena.py       # Arena PvP: matchmaking, balance, limits, migration
     ├── test_rarity.py      # Egg rarity/origin: chances, scaling, compatibility
     ├── test_breeding.py    # Breeding: pairing, cost, locking, outcomes
+    ├── test_keyboard.py    # Main reply keyboard routes to existing commands
     └── test_atomicity.py   # Concurrency tests: no duplicate rewards/dragons
 ```
 
@@ -320,7 +353,7 @@ python3 scripts/test_atomicity.py    # concurrency: no duplicate rewards/dragons
 for s in scripts/test_*.py scripts/smoke_test.py; do python3 "$s" || break; done
 ```
 
-There are 24 suites; `test_admin.py` needs `DRAGON_ADMIN_IDS=1 DRAGON_DEBUG=true`.
+There are 25 suites; `test_admin.py` needs `DRAGON_ADMIN_IDS=1 DRAGON_DEBUG=true`.
 Runs against a throwaway DB. The smoke test covers player creation,
 hunting/fishing, cooldowns, chat tracking, spawning, claiming, found eggs,
 hatching and expiry; the atomicity test runs **concurrent** hunts and claims in

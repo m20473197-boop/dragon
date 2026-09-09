@@ -15,6 +15,7 @@ from config import (
     COMMAND_TREASURY,
     COMMAND_BREEDING,
 )
+from handlers.keyboards import main_menu_keyboard
 from handlers.tracking import track_from_update
 
 WELCOME_TEXT = (
@@ -36,9 +37,15 @@ WELCOME_TEXT = (
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     track_from_update(update, context)
-    await update.effective_message.reply_text(WELCOME_TEXT)
+    # The reply keyboard is an accessibility shortcut: every button sends the
+    # very same Persian word the user could type by hand.
+    await update.effective_message.reply_text(
+        WELCOME_TEXT, reply_markup=main_menu_keyboard()
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     track_from_update(update, context)
-    await update.effective_message.reply_text(WELCOME_TEXT)
+    await update.effective_message.reply_text(
+        WELCOME_TEXT, reply_markup=main_menu_keyboard()
+    )
