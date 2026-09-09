@@ -127,9 +127,17 @@ def main():
     })
 
     # ---------- config ----------
-    check("CHEST_EXPIRE_TIME is 30 minutes", config.CHEST_EXPIRE_TIME == 30 * 60)
-    check("EGG_EXPIRE_TIME is 30 minutes", config.EGG_EXPIRE_TIME == 30 * 60)
-    check("MESSAGE_DELETE_TIME is 5 minutes", config.MESSAGE_DELETE_TIME == 5 * 60)
+    # These are deliberately configurable (env overrides), so assert they are
+    # sane and actually applied rather than pinning one specific number.
+    check("CHEST_EXPIRE_TIME is a positive number of seconds",
+          isinstance(config.CHEST_EXPIRE_TIME, int) and config.CHEST_EXPIRE_TIME > 0,
+          config.CHEST_EXPIRE_TIME)
+    check("EGG_EXPIRE_TIME is a positive number of seconds",
+          isinstance(config.EGG_EXPIRE_TIME, int) and config.EGG_EXPIRE_TIME > 0,
+          config.EGG_EXPIRE_TIME)
+    check("MESSAGE_DELETE_TIME is a positive number of seconds",
+          isinstance(config.MESSAGE_DELETE_TIME, int) and config.MESSAGE_DELETE_TIME > 0,
+          config.MESSAGE_DELETE_TIME)
     check("chest open window follows CHEST_EXPIRE_TIME",
           config.CHEST_OPEN_WINDOW_SECONDS == config.CHEST_EXPIRE_TIME)
     check("egg claim window follows EGG_EXPIRE_TIME",
@@ -169,8 +177,12 @@ def main():
     check("claimed egg has a stored deletion deadline", stored.delete_after is not None)
     if stored.delete_after:
         delta = stored.delete_after - time.time()
-        check("egg deadline is ~MESSAGE_DELETE_TIME away",
-              config.MESSAGE_DELETE_TIME - 30 < delta <= config.MESSAGE_DELETE_TIME + 1, delta)
+        # The scheduled deadline must honour the configured value, whatever
+        # it is set to (production 300s, fast testing e.g. 20s).
+        tolerance = max(5, config.MESSAGE_DELETE_TIME * 0.1)
+        check("egg deadline honours MESSAGE_DELETE_TIME",
+              abs(delta - config.MESSAGE_DELETE_TIME) <= tolerance,
+              f"delta={delta} expected~{config.MESSAGE_DELETE_TIME}")
 
     # ---------- 3. second user cannot collect ----------
     sara = FakeUser(2, "Sara")
