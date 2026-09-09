@@ -442,39 +442,47 @@ Code: `models/chest.py`, `game/chests.py`, `handlers/chests.py`, job
 
 ## 🏪 Market (بازار)
 
-`بازار` opens an inline market. Everything is priced in **🪨 obsidian only** —
-aether is never spent, and there is no selling and no chest shop.
+`بازار` opens an inline market that sells **tool upgrades only**, priced in
+**🪨 obsidian** (aether is never spent, and there is no selling).
 
-> 🏪 بازار اژدها
->
-> 💰 موجودی تو: 🪨 ۱۲۰۰ ابسیدین
+```
+🏪 بازار
 
-| Category | Contents |
-|----------|----------|
-| 🥩 غذا | 🥩 گوشت — ۱۰ عدد for 🪨 ۵۰ · 🐟 ماهی — ۱۰ عدد for 🪨 ۴۰ |
-| 🥚 تخم اژدها | 🥚 تخم معمولی for 🪨 ۸۰۰ |
-| ✨ آیتم‌های ویژه | Empty — reserved for future items |
-| 🔙 برگشت | Back to the category list |
+💰 ۲۵۰۰ 🪨
 
-Each item has its own buy button. On success the message is edited to:
+انتخاب کن:
+  [🎣 ابزار ماهیگیری]
+  [🏹 ابزار شکار]
+  [🔙]
+```
 
-> ✅ خرید انجام شد!
->
-> 🥩 ۱۰ گوشت به سردخانه‌ات اضافه شد.
-> 💸 پرداختی: 🪨 ۵۰ ابسیدین · 💰 موجودی جدید: 🪨 ۱۱۵۰ ابسیدین
+Each button opens that tool's screen — current level, reward range and the
+next cost — with a single `[⬆️ ارتقا]` button (see
+[Tool progression](#-tool-progression-version-6)).
 
-**Food** is deposited into the cold storage. **Eggs** are created through the
-existing egg pipeline (`EggService.create_found_egg`, forced to the purchased
-type), so a bought egg is owned, incubating, counted in `players.eggs`, listed
-by `تخم ها` and hatched by the normal hatch sweep — no new egg mechanics.
+### Food and eggs are not for sale
 
-**Safety:** payment uses a guarded `spend_currency` UPDATE
-(`... WHERE obsidian >= price`), so a balance can never go negative and ten
-simultaneous taps yield exactly one purchase (covered by the tests). If egg
-creation ever fails, the obsidian is refunded.
+Meat, fish and dragon eggs were removed from the shop on purpose:
 
-Prices, amounts and new items live in `config.MARKET_ITEMS` — extending the
-market (including filling the special category) is a configuration change.
+| Resource | How it is obtained now |
+| --- | --- |
+| 🥩 گوشت | 🏹 hunting, 🎁 chests |
+| 🐟 ماهی | 🎣 fishing, 🎁 chests |
+| 🥚 تخم اژدها | random spawns, 🎁 rewards |
+
+Only the **shop entries** are gone. Nothing was deleted from the game:
+
+* the cold storage keeps every player's existing 🥩/🐟 and still accepts
+  deposits from gathering and chests, and spends on feeding;
+* the egg system is untouched — spawning, claiming, incubating, `تخم ها` and
+  hatching all work exactly as before, and players keep the eggs they own.
+
+`MARKET_ITEMS` therefore holds no buyable items, and `MarketService` only reads
+the obsidian balance; `game.tools` performs the guarded spend for upgrades. The
+old `buy` / `_buy_food` / `_buy_egg` paths and their item screens were removed
+with them, so a stale «خرید» button from an old message is simply ignored — it
+cannot grant food or eggs.
+
 Code: `game/market.py`, `handlers/market.py`. Tests: `scripts/test_market.py`.
 
 ## 🥚 Egg spawn cooldown

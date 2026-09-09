@@ -1,18 +1,17 @@
-"""Market (بازار) command, category menus and purchase buttons.
+"""Market (بازار) command and tool upgrade screens.
 
 Layout:
 
-    🏪 بازار اژدها          -> categories
-      🥩 غذا                -> meat / fish, each with a [خرید] button
-      🥚 تخم اژدها          -> common egg, with a [خرید] button
+    🏪 بازار                -> categories
       🎣 ابزار ماهیگیری      -> current rod level, with an [⬆️ ارتقا] button
       🏹 ابزار شکار          -> current weapon level, with an [⬆️ ارتقا] button
-      ✨ آیتم‌های ویژه       -> empty, reserved for future items
-      🔙 برگشت              -> back to the categories
 
-Everything is priced in 🪨 obsidian. The service layer performs the guarded
-spend, so a player can never overspend or go negative; this module only
-renders the UI and reports the outcome.
+The market sells TOOL UPGRADES only. Food and dragon eggs are not for sale:
+food comes from 🏹 hunting, 🎣 fishing and 🎁 chests, and eggs come from random
+spawns and rewards. The cold storage and egg systems are untouched.
+
+Everything is priced in 🪨 obsidian. ``game.tools`` performs the guarded spend,
+so a player can never overspend; this module only renders the UI.
 """
 from __future__ import annotations
 
@@ -23,20 +22,18 @@ from telegram.error import BadRequest, TelegramError
 from telegram.ext import ContextTypes
 
 from config import MARKET_CATEGORIES, MARKET_ITEMS, TOOL_MAX_LEVEL
-from game.market import list_category
-from game.tools import ROD, WEAPON, is_max_level, tool_display, upgrade_cost
+from game.tools import ROD, WEAPON, is_max_level, reward_range, tool_display, upgrade_cost
 from utils.text import to_fa
 
 logger = logging.getLogger(__name__)
 
-# Callback data: "mk:<action>[:<category>[:<item>]]".
+# Callback data: "mk:<action>[:<category>]".
 PREFIX = "mk:"
 ACTION_HOME = "home"
 ACTION_CATEGORY = "cat"
-ACTION_BUY = "buy"
 ACTION_TOOL_UP = "toolup"   # mk:toolup:<rod|hunt>
 
-# Market categories that are tool screens rather than item lists.
+# Every market category is a tool screen.
 TOOL_CATEGORIES = {"rod": ROD, "hunt": WEAPON}
 
 MARKET_TITLE = "🏪 بازار"
@@ -75,22 +72,6 @@ def tool_keyboard(category: str, at_max: bool) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def category_keyboard(category: str) -> InlineKeyboardMarkup:
-    """One «خرید» button per item, plus back to the categories."""
-    rows = []
-    for item_key, item in list_category(category).items():
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    f"{item['emoji']} {item['name']} 🪨 {to_fa(item['price'])}",
-                    callback_data=f"{PREFIX}{ACTION_BUY}:{category}:{item_key}",
-                )
-            ]
-        )
-    rows.append([InlineKeyboardButton("🔙", callback_data=f"{PREFIX}{ACTION_HOME}")])
-    return InlineKeyboardMarkup(rows)
-
-
 # --- texts ------------------------------------------------------------------
 def market_text(balance: int) -> str:
     return (
@@ -98,26 +79,6 @@ def market_text(balance: int) -> str:
         f"💰 {to_fa(balance)} 🪨\n\n"
         "انتخاب کن:"
     )
-
-
-def category_text(category: str, balance: int) -> str:
-    spec = MARKET_CATEGORIES[category]
-    items = list_category(category)
-    lines = [f"{spec['emoji']} {spec['name']}", ""]
-
-    if not items:
-        # The special category is intentionally empty for now.
-        lines.append("🚧 به‌زودی!")
-    else:
-        for item in items.values():
-            amount = item.get("amount", 1)
-            unit = f" ×{to_fa(amount)}" if amount > 1 else ""
-            lines.append(
-                f"{item['emoji']} {item['name']}{unit} — 🪨 {to_fa(item['price'])}"
-            )
-
-    lines += ["", f"💰 {to_fa(balance)} 🪨"]
-    return "\n".join(lines)
 
 
 def tool_text(category: str, level: int, balance: int) -> str:
@@ -134,8 +95,6 @@ def tool_text(category: str, level: int, balance: int) -> str:
         ⬆️ ارتقا: 🪨 ۱۰۰۰۰
         💰 ۵۰۰۰ 🪨
     """
-    from game.tools import reward_range   # local import avoids a cycle at import time
-
     kind = TOOL_CATEGORIES[category]
     spec = MARKET_CATEGORIES[category]
     emoji, name = tool_display(kind, level)
@@ -174,17 +133,6 @@ def tool_upgraded_text(category: str, result) -> str:
         f"🪨 -{to_fa(result.spent)}   💰 {to_fa(result.balance)}",
     ]
     return "\n".join(lines)
-
-
-def purchase_text(result) -> str:
-    """Success message for a completed purchase."""
-    item = result.item
-    got = f"{item['emoji']} +{to_fa(result.amount)} {item['name']}"
-    return (
-        "✅ خرید شد!\n\n"
-        f"{got}\n"
-        f"🪨 -{to_fa(result.price)}   💰 {to_fa(result.balance)}"
-    )
 
 
 # --- command ----------------------------------------------------------------
@@ -261,37 +209,6 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 return
 
             await _answer(query)
-            return
-
-        if action == ACTION_CATEGORY:
-            await _answer(query)
-            await _edit(
-                query,
-                category_text(category, market.balance(user.id)),
-                category_keyboard(category),
-            )
-            return
-
-        if action == ACTION_BUY:
-            item_key = parts[3] if len(parts) > 3 else ""
-            chat_id = query.message.chat_id if query.message is not None else None
-            result = market.buy(user.id, category, item_key, chat_id=chat_id)
-
-            if not result.success:
-                if result.reason == "not_enough":
-                    await _answer(
-                        query,
-                        f"🪨 کم داری! {to_fa(result.missing)} تای دیگه لازمه.",
-                        alert=True,
-                    )
-                elif result.reason == "failed":
-                    await _answer(query, "❌ خرید نشد! دوباره بزن.", alert=True)
-                else:
-                    await _answer(query, "🚧 پیدا نشد.", alert=True)
-                return
-
-            await _answer(query, "✅ خرید شد!")
-            await _edit(query, purchase_text(result), category_keyboard(category))
             return
 
         await _answer(query)

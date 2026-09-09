@@ -259,32 +259,19 @@ CHEST_REWARDS: dict[str, dict] = {
 }
 
 # --- Market (بازار) ---------------------------------------------------------
-# Everything purchasable, priced in 🪨 obsidian only. Amounts and prices are
-# configuration, so the market can grow without touching the code.
-# 'special' is intentionally empty: reserved for future items.
+# The market sells TOOL UPGRADES ONLY, priced in 🪨 obsidian.
+#
+# Food (🥩 meat / 🐟 fish) and dragon eggs (🥚) are deliberately NOT for sale:
+#   * food comes from 🏹 hunting, 🎣 fishing and 🎁 chests,
+#   * eggs come from random spawns and rewards.
+# Removing the shop entries does not touch the cold storage or the egg system —
+# players keep everything they already own.
+#
+# Tool upgrades are not "items" (game.tools applies them), but the categories
+# must exist so the market router accepts them.
 MARKET_ITEMS: dict[str, dict] = {
-    "food": {
-        "meat": {
-            "name": "گوشت", "emoji": "🥩", "price": 50,
-            "amount": 10, "kind": "food", "resource": "meat",
-        },
-        "fish": {
-            "name": "ماهی", "emoji": "🐟", "price": 40,
-            "amount": 10, "kind": "food", "resource": "fish",
-        },
-    },
-    "eggs": {
-        "common": {
-            "name": "تخم معمولی", "emoji": "🥚", "price": 800,
-            "amount": 1, "kind": "egg", "egg_type": "common",
-        },
-    },
-    # Tool upgrades are not "items": they are handled by game.tools, but the
-    # categories must exist so the market router accepts them.
     "rod": {},
     "hunt": {},
-    # Reserved for future content — no items yet, on purpose.
-    "special": {},
 }
 
 # 'short' is the compact button label; 'name' is the page title.
@@ -337,11 +324,8 @@ HUNTING_WEAPONS: dict[int, dict] = {
 }
 
 MARKET_CATEGORIES: dict[str, dict] = {
-    "food":    {"name": "غذا", "short": "غذا", "emoji": "🥩"},
-    "eggs":    {"name": "تخم اژدها", "short": "تخم", "emoji": "🥚"},
-    "rod":     {"name": "ابزار ماهیگیری", "short": "ابزار ماهیگیری", "emoji": "🎣"},
-    "hunt":    {"name": "ابزار شکار", "short": "ابزار شکار", "emoji": "🏹"},
-    "special": {"name": "آیتم‌های ویژه", "short": "ویژه", "emoji": "✨"},
+    "rod":  {"name": "ابزار ماهیگیری", "short": "ابزار ماهیگیری", "emoji": "🎣"},
+    "hunt": {"name": "ابزار شکار", "short": "ابزار شکار", "emoji": "🏹"},
 }
 
 # --- Egg spawning in groups -------------------------------------------------

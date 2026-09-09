@@ -189,10 +189,10 @@ def _setup_shared_objects(application: Application) -> None:
         eggs=application.bot_data["egg_repo"],
         storage=application.bot_data["storage_service"],
     )
+    # The market sells tool upgrades only, so it just needs the player row
+    # (food and eggs are no longer purchasable).
     application.bot_data["market_service"] = MarketService(
         players=application.bot_data["player_repo"],
-        storage=application.bot_data["storage_service"],
-        egg_service=application.bot_data["egg_service"],
     )
     # Upgrades are paid in obsidian, so no cold-storage dependency.
     application.bot_data["upgrade_service"] = UpgradeService(
